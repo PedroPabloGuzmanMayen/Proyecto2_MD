@@ -1,0 +1,72 @@
+---
+title: "Análisis de Modelos"
+author: "Gustavo Cruz; Pedro Guzman"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Carga de Librerías y Datos
+
+```{r}
+library(tidyverse)
+library(caret)
+library(car)
+library(Metrics)
+library(ggplot2)
+
+train <- read.csv("train.csv")
+test <- read.csv("test.csv")
+
+set.seed(2301)
+trainIndex <- createDataPartition(train$SalePrice, p = 0.8, list = FALSE)
+train_set <- train[trainIndex, ]
+test_set <- train[-trainIndex, ]
+```
+
+## Construcción del Modelo
+
+```{r}
+lm_opt <- lm(SalePrice ~ GrLivArea + OverallQual + YearBuilt + GarageCars, data = train_set)
+summary(lm_opt)
+```
+
+## Análisis de los Residuos
+
+```{r}
+par(mfrow = c(2, 2))
+plot(lm_opt)
+par(mfrow = c(1, 1))
+```
+
+## **Interpretación de las graficas:**
+**En la primera gráfica** (Residuals vs Fitted), observamos que los residuos no están completamente dispersos de manera aleatoria alrededor de la línea horizontal en cero. Hay una ligera curvatura, lo que sugiere una posible no linealidad en los datos. Esto indica que el modelo puede no capturar completamente la relación entre las variables predictoras y el precio de venta.
+
+**La segunda gráfica** (Q-Q Plot) muestra la distribución de los residuos en comparación con una distribución normal teórica. Vemos que los puntos se desvían en los extremos, lo que indica la presencia de colas gruesas y sugiere que los residuos no siguen perfectamente una distribución normal. Esto puede afectar la validez de los intervalos de confianza y pruebas estadísticas en el modelo.
+
+**En la tercera gráfica** (Scale-Location), los residuos tienden a aumentar en variabilidad a medida que aumentan los valores ajustados. Esto sugiere heterocedasticidad, es decir, la varianza de los errores no es constante. Idealmente, deberíamos ver una distribución uniforme en la dispersión de los puntos.
+
+**La gráfica de Residuals vs Leverage** nos ayuda a identificar puntos influyentes en el modelo. Se observan algunos puntos con alta influencia, señalados por el umbral de Cook’s Distance. Estos valores atípicos pueden estar afectando los coeficientes del modelo, y se recomienda analizarlos individualmente para decidir si deben ser eliminados o si es necesario un modelo más robusto.
+## Evaluación del Desempeño del Modelo
+
+```{r}
+preds <- predict(lm_opt, newdata = test_set)
+
+mae_val <- mae(test_set$SalePrice, preds)
+rmse_val <- rmse(test_set$SalePrice, preds)
+r2_val <- cor(test_set$SalePrice, preds)^2
+
+cat("MAE:", mae_val, "\n")
+cat("RMSE:", rmse_val, "\n")
+cat("R²:", r2_val, "\n")
+```
+
+Para evaluar la precisión del modelo, utilizamos tres métricas: MAE (Error Absoluto Medio), RMSE (Raíz del Error Cuadrático Medio) y R² (Coeficiente de Determinación).
+
+- MAE: 25,446.3 → En promedio, el modelo tiene un error absoluto de aproximadamente 25,446 dólares en la predicción del precio de venta. Esto indica el margen de error esperado en una estimación individual.
+- RMSE: 38,687.16 → El RMSE mide la dispersión de los errores y penaliza más los errores grandes. Un RMSE más bajo es mejor, pero en este caso indica que aún hay errores significativos en la predicción de los precios.
+- R²: 0.7155 → Esto significa que el modelo explica aproximadamente el 71.55% de la variabilidad en los precios de venta de las propiedades. Aunque es un buen valor, todavía hay un 28.45% de variabilidad no explicada, lo que sugiere que otras variables podrían mejorar el modelo.
+
