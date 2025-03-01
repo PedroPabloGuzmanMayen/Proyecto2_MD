@@ -27,6 +27,35 @@ train_set <- train[trainIndex, ]
 test_set <- train[-trainIndex, ]
 ```
 
+##Análisis exploratorio
+
+##Análisis de las variables
+
+### Variables cuantitativas: 
+- **SalesPrice**: es una variable continua que representa el precio de cada vivienda en dólares. 
+- **Lot frontage**: es una variable continua que representa la cantidad de pies conectadas a la vivienda. 
+- **Lot Area**: es una variable continua que representa el área de la vivienda en pies cuadrados. 
+- **YearBuilt**: es una variable discreta que representa el año en el que se construyó la vivienda
+- **YearRemodAdd**: discreta, representa el año en el que se remodeló la vivienda.
+- **BsmtFinSF1**: continua, son los pies cuadrados de tipo 1 terminados. 
+- **MasVnrArea**: continua, representa, en pies cuadrados, el área del revestimiento de mampostería. 
+- **BsmtFinSF2**: continua, son los pies cuadrados de tipo 2 terminados.
+- **BsmtUnfSF**: continua, son los pies cuadrados sin terminar en el sótano. 
+- **TotalBsmtSF**: continua, representa, en pues cuadrados, el área total del sótano de la vivienda. 
+- **1stFlrSF**: continua, representa la cantidad de pies cuadrados del primer piso.
+- **2ndFlrSF**: continua, representa la cantidad de pies cuadrados del segundo piso. 
+- **LowQualFinSF**: continua, representa la cantidad de piees cuadrados terminados en todos los pisos de la vivienda.
+- **GrLivArea**: continua, representa la cantidad de área sobre e nivel del suelo habitable en pies cuadrados.
+- **BsmtFullBath**: discreta, la cantidad de baños con ducha en el sótano de la vivienda. 
+- **BsmtHalfBath**: discerta, se refiere a la cantidad de baños sin ducha de la vivienda. 
+- **FullBath**: discreta, se refiere a la cantidadde baños con ducha sobre el nivel del suelo. 
+- **HalfBath**: discreta, es la cantidad de baños sin ducha sobre el nivel del suelo. 
+- **Bedroom**: discreta, la cantidad de dormitorios sobre el nivel del sótano que hay en la vivienda. 
+- **Kitchen**: discreta, la cantidad de cocinas de la vivienda. 
+- **TotRmsAbvGrd**: discreta, cantidad de cuartos sobre el nivel del suelo de la vivienda. 
+- **Fireplaces**: discreta, la cantidad de chimeneas que hay
+- **GarageYrBlt**: discreta, el año en el que se construyó el garage de la vivienda. 
+
 ## Construcción del Modelo
 
 ```{r}
