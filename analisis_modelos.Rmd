@@ -70,3 +70,183 @@ Para evaluar la precisión del modelo, utilizamos tres métricas: MAE (Error Abs
 - RMSE: 38,687.16 → El RMSE mide la dispersión de los errores y penaliza más los errores grandes. Un RMSE más bajo es mejor, pero en este caso indica que aún hay errores significativos en la predicción de los precios.
 - R²: 0.7155 → Esto significa que el modelo explica aproximadamente el 71.55% de la variabilidad en los precios de venta de las propiedades. Aunque es un buen valor, todavía hay un 28.45% de variabilidad no explicada, lo que sugiere que otras variables podrían mejorar el modelo.
 
+## División en Conjuntos de Entrenamiento y Prueba
+```{r}
+set.seed(3915)
+trainIndex <- createDataPartition(train$SalePrice, p = 0.8, list = FALSE)
+train_set <- train[trainIndex, ]
+test_set <- train[-trainIndex, ]
+```
+
+## Eliminación de variables con un solo nivel
+```{r}
+unique_counts <- sapply(train_set, function(x) length(unique(x)))
+problematic_vars <- names(unique_counts[unique_counts == 1])
+if(length(problematic_vars) > 0) {
+  train_set <- train_set[, !(names(train_set) %in% problematic_vars)]
+  test_set <- test_set[, !(names(test_set) %in% problematic_vars)]
+  cat("Variables eliminadas por tener un solo nivel:", problematic_vars, "\n")
+} else {
+  cat("No se encontraron variables con un solo nivel.\n")
+}
+```
+
+## Eliminación de variables categóricas con un solo nivel
+```{r}
+cat_vars <- names(train_set)[sapply(train_set, is.factor)]
+cat_vars_unicas <- cat_vars[sapply(train_set[, cat_vars, drop=FALSE], function(x) length(unique(x)) == 1)]
+if(length(cat_vars_unicas) > 0) {
+  train_set <- train_set[, !(names(train_set) %in% cat_vars_unicas)]
+  test_set <- test_set[, !(names(test_set) %in% cat_vars_unicas)]
+  cat("Variables categóricas eliminadas por tener un solo nivel:", cat_vars_unicas, "\n")
+} else {
+  cat("No se encontraron variables categóricas con un solo nivel.\n")
+}
+```
+
+## Manejo de Valores Faltantes
+```{r}
+# Verificamos valores faltantes en conjuntos de entrenamiento y prueba
+na_count_train <- colSums(is.na(train_set))
+na_count_test <- colSums(is.na(test_set))
+
+# Mostramos las variables con valores faltantes
+na_vars_train <- names(na_count_train[na_count_train > 0])
+na_vars_test <- names(na_count_test[na_count_test > 0])
+
+cat("Variables con valores faltantes en train_set:", 
+    ifelse(length(na_vars_train) > 0, paste(na_vars_train, collapse=", "), "Ninguna"), "\n")
+cat("Variables con valores faltantes en test_set:", 
+    ifelse(length(na_vars_test) > 0, paste(na_vars_test, collapse=", "), "Ninguna"), "\n")
+
+# Imputación simple para variables numéricas (media)
+for(col in intersect(names(which(sapply(train_set, is.numeric))), na_vars_train)) {
+  mean_val <- mean(train_set[[col]], na.rm = TRUE)
+  train_set[[col]][is.na(train_set[[col]])] <- mean_val
+  if(col %in% names(test_set)) {
+    test_set[[col]][is.na(test_set[[col]])] <- mean_val
+  }
+}
+
+# Imputación simple para variables categóricas (moda)
+for(col in intersect(names(which(sapply(train_set, is.factor))), na_vars_train)) {
+  mode_val <- names(sort(table(train_set[[col]]), decreasing = TRUE))[1]
+  train_set[[col]][is.na(train_set[[col]])] <- mode_val
+  if(col %in% names(test_set)) {
+    test_set[[col]][is.na(test_set[[col]])] <- mode_val
+  }
+}
+```
+
+## Definición de Modelos de Regresión
+```{r}
+# Aseguramos que las variables predictoras son equivalentes en ambos conjuntos
+common_vars <- intersect(names(train_set), names(test_set))
+train_set <- train_set[, common_vars]
+test_set <- test_set[, common_vars]
+
+# Modelo 1: Regresión Simple
+lm1 <- lm(SalePrice ~ GrLivArea, data = train_set)
+summary(lm1)
+
+# Modelo 2: Regresión Múltiple con variables seleccionadas
+lm2 <- lm(SalePrice ~ GrLivArea + OverallQual + YearBuilt + GarageCars, data = train_set)
+summary(lm2)
+
+# Modelo 3: Modelo Completo
+# Excluimos posibles variables problemáticas
+exclude_vars <- c("Id") # Agrega aquí variables que no deban considerarse para el modelo
+formula_vars <- setdiff(names(train_set), c("SalePrice", exclude_vars))
+formula_full <- as.formula(paste("SalePrice ~", paste(formula_vars, collapse = " + ")))
+lm_full <- lm(formula_full, data = train_set)
+```
+
+## Evaluación de Modelos
+```{r}
+modelos <- list(lm1, lm2, lm_full)
+nombres_modelos <- c("Regresión Simple", "Regresión Múltiple", "Modelo Completo")
+resultados <- data.frame(Modelo = character(), MAE = numeric(), RMSE = numeric(), R2 = numeric())
+
+for (i in 1:length(modelos)) {
+  preds <- predict(modelos[[i]], newdata = test_set)
+  mae_val <- mae(test_set$SalePrice, preds)
+  rmse_val <- rmse(test_set$SalePrice, preds)
+  r2_val <- cor(test_set$SalePrice, preds)^2
+  
+  resultados <- rbind(resultados, data.frame(
+    Modelo = nombres_modelos[i],
+    MAE = mae_val,
+    RMSE = rmse_val,
+    R2 = r2_val
+  ))
+}
+```
+
+## Visualización de Resultados
+```{r}
+print(resultados)
+
+# Gráfico de barras para RMSE
+ggplot(resultados, aes(x = Modelo, y = RMSE, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Comparación de Modelos - RMSE", y = "RMSE", x = "Modelo") +
+  theme(legend.position = "none")
+
+# Gráfico de barras para R²
+ggplot(resultados, aes(x = Modelo, y = R2, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Comparación de Modelos - R²", y = "R²", x = "Modelo") +
+  theme(legend.position = "none")
+```
+
+## Diagnóstico de Residuos para el Modelo Completo
+```{r}
+par(mfrow=c(2,2))
+plot(lm_full)
+```
+
+## Análisis de Importancia de Variables (para el Modelo Completo)
+```{r}
+# Obtenemos los coeficientes del modelo completo
+coefs <- coef(lm_full)[-1]  # Excluimos el intercepto
+var_importance <- abs(coefs)
+var_importance <- sort(var_importance, decreasing = TRUE)
+
+# Visualizamos las 15 variables más importantes
+head_vars <- head(var_importance, 15)
+importance_df <- data.frame(
+  Variable = names(head_vars),
+  Importancia = as.numeric(head_vars)
+)
+
+ggplot(importance_df, aes(x = reorder(Variable, Importancia), y = Importancia)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  theme_minimal() +
+  labs(title = "Variables más Importantes en el Modelo Completo", 
+       x = "Variable", 
+       y = "Importancia (|Coeficiente|)")
+```
+
+## Conclusiones
+```{r, results='asis'}
+cat("## Conclusiones\n\n")
+
+cat("- El modelo completo obtuvo un RMSE de", round(resultados$RMSE[3], 2), 
+    "y un R² de", round(resultados$R2[3], 3), "en el conjunto de prueba.\n")
+
+cat("- Las variables más influyentes en el precio de venta incluyen: ", 
+    paste(names(head(var_importance, 5)), collapse=", "), ".\n")
+
+mejor_modelo_idx <- which.min(resultados$RMSE)
+cat("- El modelo con mejor desempeño fue '", resultados$Modelo[mejor_modelo_idx], 
+    "' con un RMSE de ", round(resultados$RMSE[mejor_modelo_idx], 2), 
+    " y un R² de ", round(resultados$R2[mejor_modelo_idx], 3), ".\n")
+
+cat("- Los diagnósticos de residuos sugieren que ", 
+    ifelse(shapiro.test(residuals(lm_full))$p.value > 0.05, 
+           "los residuos siguen una distribución aproximadamente normal.", 
+           "podría haber algunas desviaciones de la normalidad en los residuos."), "\n")
+```
