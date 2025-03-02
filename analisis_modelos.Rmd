@@ -255,53 +255,137 @@ if(nrow(resultados) > 0) {
 }
 ```
 
-```{r}
-# Asegurar que los datos están cargados
-if (!exists("house_prices")) {
-  house_prices <- read.csv("house_prices.csv")
-}
+---
+title: "Análisis de Grupos y Regresión Ridge para Datos de Vivienda"
+output: html_document
+---
 
-# Preprocesamiento: seleccionar variables numéricas
-numeric_data <- house_prices %>% select(where(is.numeric)) %>% drop_na()
+```{r configuracion, message=FALSE, warning=FALSE}
+# Cargar librerías necesarias
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(glmnet)
+library(caret)
+library(gridExtra)
 
-# K-Means Clustering
-set.seed(123)  # Reproducibilidad
-k <- 3  # Número de clusters
-kmeans_model <- kmeans(numeric_data, centers = k, nstart = 25)
-numeric_data$cluster <- as.factor(kmeans_model$cluster)
-
-# Visualización Clustering (ejemplo con primeras dos variables principales)
-ggplot(numeric_data, aes(x = numeric_data[,1], y = numeric_data[,2], color = cluster)) +
-  geom_point() +
-  labs(title = "K-Means Clustering")
-
-# Ridge Regression para evitar sobreajuste
-set.seed(123)
-data_split <- initial_split(numeric_data, prop = 0.8)
-train_data <- training(data_split)
-test_data <- testing(data_split)
-
-ridge_recipe <- recipe(SalePrice ~ ., data = train_data) %>%
-  step_normalize(all_predictors())
-
-ridge_spec <- linear_reg(penalty = 0.1, mixture = 0) %>% 
-  set_engine("glmnet")
-
-ridge_workflow <- workflow() %>% 
-  add_recipe(ridge_recipe) %>% 
-  add_model(ridge_spec)
-
-ridge_fit <- fit(ridge_workflow, data = train_data)
-
-# Evaluación
-ridge_results <- predict(ridge_fit, test_data) %>%
-  bind_cols(test_data) %>%
-  metrics(truth = SalePrice, estimate = .pred)
-
-print(ridge_results)
-
+# Asegurar reproducibilidad
+set.seed(812)
 ```
 
+## 1. Análisis de Grupos (K-means)
+
+```{r preparar_datos_cluster}
+# Identificar las filas sin NA
+filas_completas <- complete.cases(train %>% select_if(is.numeric) %>% select(-SalePrice))
+train_completo <- train[filas_completas, ]
+
+datos_cluster <- train_completo %>%
+  select_if(is.numeric) %>%
+  select(-SalePrice)
+
+datos_cluster_scaled <- scale(datos_cluster)
+```
+
+```{r determinar_clusters_optimos, fig.width=10, fig.height=5}
+# Determinar el número óptimo de clusters usando el método del codo
+p1 <- fviz_nbclust(datos_cluster_scaled, kmeans, method = "wss", k.max = 10) +
+  labs(title = "Método del Codo",
+       x = "Número de Clusters",
+       y = "Suma Total de Cuadrados Dentro de los Grupos") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+
+# Comparacion con método de la silueta
+p2 <- fviz_nbclust(datos_cluster_scaled, kmeans, method = "silhouette", k.max = 10) +
+  labs(title = "Método de la Silueta",
+       x = "Número de Clusters",
+       y = "Valor Promedio de la Silueta") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+grid.arrange(p1, p2, ncol = 2)
+```
+Para elegir el k-óptimo, se llevo a cabo la comparación de ambos métodos, para así poder elegir más fácil el cluster correcto.
+
+### Método del Codo (izquierda)
+Se observa una disminución rápida en la inercia hasta k=3, luego la reducción es más gradual.
+El "codo" parece estar en k=3 o k=4, ya que después la pendiente disminuye menos.
+
+### Coeficiente de Silueta (derecha)
+El valor máximo del coeficiente de silueta se encuentra en k=3.
+A partir de k=4, el valor comienza a descender, lo que indica que los clusters son menos compactos.
+
+El k-optimo elegido será k=3 debido a que tanto en el método del codo, como en el de silueta lo favorecen.
+```{r crear_clusters}
+k_optimo <- 3
+modelo_kmeans <- kmeans(datos_cluster_scaled, centers = k_optimo, nstart = 25)
+
+train_completo$Cluster <- modelo_kmeans$cluster
+```
+
+```{r}
+fviz_cluster(modelo_kmeans, data = datos_cluster_scaled,
+             palette = "jco",
+             geom = "point",
+             ellipse.type = "convex",
+             ggtheme = theme_minimal()) +
+  labs(title = "Agrupación de Casas por Características",
+       subtitle = paste("K-means con", k_optimo, "clusters")) +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        plot.subtitle = element_text(size = 12, hjust = 0.5))
+```
+
+```{r analisis_caracteristicas_clusters}
+caracteristicas_por_cluster <- train_completo %>%
+  group_by(Cluster) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
+  mutate(across(where(is.numeric), round, 2))
+
+comparacion_precios <- train_completo %>%
+  group_by(Cluster) %>%
+  summarise(
+    Precio_Medio = mean(SalePrice, na.rm = TRUE),
+    Precio_Mediano = median(SalePrice, na.rm = TRUE),
+    Desviación_Estándar = sd(SalePrice, na.rm = TRUE),
+    Conteo = n()
+  ) %>%
+  arrange(desc(Precio_Medio))
+
+knitr::kable(comparacion_precios, caption = "Comparación de Precios por Cluster")
+```
+
+```{r visualizar_precios_por_cluster, fig.width=8, fig.height=6}
+ggplot(train_completo, aes(x = as.factor(Cluster), y = SalePrice, fill = as.factor(Cluster))) +
+  geom_boxplot() +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Distribución de Precios por Cluster",
+       x = "Cluster",
+       y = "Precio",
+       fill = "Cluster") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
+```
+
+```{r visualizar_caracteristicas_por_cluster, fig.width=10, fig.height=6}
+datos_largo <- caracteristicas_por_cluster %>%
+  pivot_longer(cols = -Cluster, 
+               names_to = "Variable", 
+               values_to = "Valor")
+
+variables_importantes <- c("LotArea", "GrLivArea", "BedroomAbvGr", "TotalBsmtSF", "YearBuilt", "OverallQual")
+
+ggplot(datos_largo %>% filter(Variable %in% variables_importantes), 
+       aes(x = Variable, y = Valor, fill = as.factor(Cluster))) +
+  geom_bar(stat = "identity", position = "dodge") +
+  scale_fill_brewer(palette = "Set1") +
+  labs(title = "Comparación de Características por Cluster",
+       x = "Variable",
+       y = "Valor Promedio",
+       fill = "Cluster") +
+  theme_minimal() +
+  theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
+        axis.text.x = element_text(angle = 45, hjust = 1))
+```
 
 ## Conclusiones
 
