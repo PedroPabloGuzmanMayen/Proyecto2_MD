@@ -335,7 +335,7 @@ fviz_cluster(modelo_kmeans, data = datos_cluster_scaled,
         plot.subtitle = element_text(size = 12, hjust = 0.5))
 ```
 
-```{r analisis_caracteristicas_clusters}
+```{r}
 caracteristicas_por_cluster <- train_completo %>%
   group_by(Cluster) %>%
   summarise(across(where(is.numeric), mean, na.rm = TRUE)) %>%
@@ -354,7 +354,7 @@ comparacion_precios <- train_completo %>%
 knitr::kable(comparacion_precios, caption = "Comparación de Precios por Cluster")
 ```
 
-```{r visualizar_precios_por_cluster, fig.width=8, fig.height=6}
+```{r}
 ggplot(train_completo, aes(x = as.factor(Cluster), y = SalePrice, fill = as.factor(Cluster))) +
   geom_boxplot() +
   scale_fill_brewer(palette = "Set1") +
@@ -366,7 +366,7 @@ ggplot(train_completo, aes(x = as.factor(Cluster), y = SalePrice, fill = as.fact
   theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5))
 ```
 
-```{r visualizar_caracteristicas_por_cluster, fig.width=10, fig.height=6}
+```{r}
 datos_largo <- caracteristicas_por_cluster %>%
   pivot_longer(cols = -Cluster, 
                names_to = "Variable", 
@@ -386,6 +386,28 @@ ggplot(datos_largo %>% filter(Variable %in% variables_importantes),
   theme(plot.title = element_text(size = 14, face = "bold", hjust = 0.5),
         axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+### Análisis de Agrupación de Casas por Características y Precios
+
+Se realizó una segmentación de viviendas utilizando el algoritmo K-Means, seleccionando k=3k=3 como el número óptimo de clusters según el método del codo y el coeficiente de silueta. Posteriormente, se analizaron las características de cada cluster en términos de precio medio, mediano y su dispersión.
+Distribución de Precios por Cluster
+
+- Cluster 1: Representa viviendas con un precio medio de 240,757 USD y una mediana de 220,000 USD. La desviación estándar de 77,447 USD sugiere una dispersión moderada en los precios.
+- Cluster 2: Contiene viviendas con un precio medio de 130,621 USD, significativamente más bajo que los otros clusters. Su mediana es de 131,200 USD, con una desviación estándar de 28,705 USD, lo que indica que los precios son más homogéneos.
+- Cluster 3: Abarca viviendas con un precio medio de 229,829 USD y una mediana de 204,875 USD, mostrando una distribución de precios similar a la del Cluster 1. Sin embargo, su desviación estándar de 90,877 USD indica una mayor variabilidad en los precios.
+
+### Comparación de Características por Cluster
+
+- Cluster 1 (rojo): Incluye casas con precios altos y características más destacadas en variables como el tamaño del lote y la calidad de acabados.
+- Cluster 2 (azul): Contiene viviendas más económicas con tamaños de lote más pequeños y acabados menos lujosos.
+- Cluster 3 (verde): Presenta precios similares al Cluster 1 pero con una mayor dispersión, lo que sugiere una mezcla de viviendas de diferentes categorías.
+
+En resumen, con base a los gráficos generados y la información encontrada, encontramos que:
+- Las viviendas de alto valor (Cluster 1): Precios elevados, acabados de mayor calidad.
+- Las viviendas económicas (Cluster 2): Precios más bajos y menos variabilidad.
+- Las viviendas de precio medio-alto (Cluster 3): Similar al Cluster 1 pero con mayor variabilidad en precios.
+
+
 
 ## Conclusiones
 
