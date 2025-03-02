@@ -406,6 +406,59 @@ set.seed(2301)
 trainIndex &lt;- createDataPartition(train$SalePrice, p = 0.8, list = FALSE)
 train_set &lt;- train[trainIndex, ]
 test_set &lt;- train[-trainIndex, ]</code></pre>
+<p>##Análisis exploratorio</p>
+<p>##Análisis de las variables</p>
+<div id="variables-cuantitativas" class="section level3">
+<h3>Variables cuantitativas:</h3>
+<ul>
+<li><strong>SalesPrice</strong>: es una variable continua que representa
+el precio de cada vivienda en dólares.</li>
+<li><strong>Lot frontage</strong>: es una variable continua que
+representa la cantidad de pies conectadas a la vivienda.</li>
+<li><strong>Lot Area</strong>: es una variable continua que representa
+el área de la vivienda en pies cuadrados.</li>
+<li><strong>YearBuilt</strong>: es una variable discreta que representa
+el año en el que se construyó la vivienda</li>
+<li><strong>YearRemodAdd</strong>: discreta, representa el año en el que
+se remodeló la vivienda.</li>
+<li><strong>BsmtFinSF1</strong>: continua, son los pies cuadrados de
+tipo 1 terminados.</li>
+<li><strong>MasVnrArea</strong>: continua, representa, en pies
+cuadrados, el área del revestimiento de mampostería.</li>
+<li><strong>BsmtFinSF2</strong>: continua, son los pies cuadrados de
+tipo 2 terminados.</li>
+<li><strong>BsmtUnfSF</strong>: continua, son los pies cuadrados sin
+terminar en el sótano.</li>
+<li><strong>TotalBsmtSF</strong>: continua, representa, en pues
+cuadrados, el área total del sótano de la vivienda.</li>
+<li><strong>1stFlrSF</strong>: continua, representa la cantidad de pies
+cuadrados del primer piso.</li>
+<li><strong>2ndFlrSF</strong>: continua, representa la cantidad de pies
+cuadrados del segundo piso.</li>
+<li><strong>LowQualFinSF</strong>: continua, representa la cantidad de
+piees cuadrados terminados en todos los pisos de la vivienda.</li>
+<li><strong>GrLivArea</strong>: continua, representa la cantidad de área
+sobre e nivel del suelo habitable en pies cuadrados.</li>
+<li><strong>BsmtFullBath</strong>: discreta, la cantidad de baños con
+ducha en el sótano de la vivienda.</li>
+<li><strong>BsmtHalfBath</strong>: discerta, se refiere a la cantidad de
+baños sin ducha de la vivienda.</li>
+<li><strong>FullBath</strong>: discreta, se refiere a la cantidadde
+baños con ducha sobre el nivel del suelo.</li>
+<li><strong>HalfBath</strong>: discreta, es la cantidad de baños sin
+ducha sobre el nivel del suelo.</li>
+<li><strong>Bedroom</strong>: discreta, la cantidad de dormitorios sobre
+el nivel del sótano que hay en la vivienda.</li>
+<li><strong>Kitchen</strong>: discreta, la cantidad de cocinas de la
+vivienda.</li>
+<li><strong>TotRmsAbvGrd</strong>: discreta, cantidad de cuartos sobre
+el nivel del suelo de la vivienda.</li>
+<li><strong>Fireplaces</strong>: discreta, la cantidad de chimeneas que
+hay</li>
+<li><strong>GarageYrBlt</strong>: discreta, el año en el que se
+construyó el garage de la vivienda.</li>
+</ul>
+</div>
 </div>
 <div id="construcción-del-modelo" class="section level2">
 <h2>Construcción del Modelo</h2>
