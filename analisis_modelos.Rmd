@@ -36,6 +36,13 @@ test_set <- train[-trainIndex, ]
 
 ##Análisis exploratorio
 
+## Análisis exploratorio
+
+```{r}
+train <- read.csv('train.csv', stringsAsFactors = FALSE)
+tests <- read.csv('test.csv', stringsAsFactors = FALSE)
+```
+
 ##Análisis de las variables
 
 ### Variables cuantitativas: 
@@ -62,6 +69,290 @@ test_set <- train[-trainIndex, ]
 - **TotRmsAbvGrd**: discreta, cantidad de cuartos sobre el nivel del suelo de la vivienda. 
 - **Fireplaces**: discreta, la cantidad de chimeneas que hay
 - **GarageYrBlt**: discreta, el año en el que se construyó el garage de la vivienda. 
+- **GarageCars**: discreta, representa la cantidad de autos que caben en el garaje de la vivienda
+- **GarageArea**: continua, reperesenta el área en pies cuadrados del garaje de la vivienda. 
+- **WoodDeckSF**: continua, representa el área en pies cuadrados de el deck de madera de la vivienda. 
+- **OpenPorchSF**: continua, el área en pies cuadrados de porche al aire libre en la vivienda.
+- **EnclosedPorch**: continua, el área en pies cuadrados de porche que no está al aire libre. 
+- **3SsnPorch**: continua, el a´rea en pies cuadrados del porche de tres estaciones. 
+- **ScreenPorch**: continua, el área en pies cuadrados de porche con mosquitero en la vivienda. 
+- **PoolArea**: continua, el área en pies cuadrados de la piscina de la vivienda. 
+- **MiscVal**: continua, valor en dólares de los agregados extra de la vivienda. 
+- **MoSold**: discreta, el mes en el que se vendió la vivienda. 
+- **YrSold**: discreta, el año en el que se vendió la vivienda. 
+
+###Variables cualitativas: 
+
+- **MSSubClass**: ordinal, representa la clase de edificación de la vivienda. 
+- **MSZoning**: ordinal, representa la clasificación de la zona en donde está la vivienda. 
+- **Street**: nominal, es el tipo de acceso por carretera a la vivienda. 
+- **Alley**: nominal, es el tipo de acceso por callejón a la vivienda. 
+- **LotShape**: nominal, es la forma de la vivienda.
+- **LandContour**: nominal, indica la llanura de la vivienda. 
+- **Utilities**: nominal, indica el tipo de utilidades que tiene la vivienda. 
+- **LotConfig**: nominal, indica la configuración del lote. 
+- **LandSlope**: nominal, indica la inclinación del lote. 
+- **Neighborhood**: nominal, indica en que vecindario se encuentra la vivienda
+- **Condition1**: nominal, indica la cercanía de la vivienda a la calle principal
+- **Condition2**: nominal, inidica la cercanía de la vivienda a otra calle principal además de la primera. 
+- **BldgType**: nominal, indica el tipo de vivienda. 
+- **HouseStyle**: nominal, indica el estilo de la vivienda. 
+- **OverallQual**: ordinal, indica la calidad de los acabados de la vivienda. 
+- **OverallCond**: ordinal, indica la calidad de la vivienda en general. 
+- **RoofStyle**: nominal, indica el tipo de techo que tiene la vivienda. 
+- **RoofMatl**: nominal, indica el material del techo de la vivienda. 
+- **Exterior1st**: nominal, indica el revestimiento exterior de la casa
+- **Exterior2nd**: nominal, indica el tipo de material del reviestimiento exterior de la casa si esta tiene más de dos materiales para el revestimiento extrerior. 
+- **MasVnrType**: nominal, indica el tipo de revestimiento de mampostería que tiene la casa. 
+- **ExterQual**: ordinal, indica la calidad del material exterior de la casa. 
+- **ExterCond**: ordinal, indica el estado actual del material exterior de la casa. 
+- **Foundation**: nominal, representa el tipo de cimentación de la casa. 
+- **BsmtQual**: ordinal, indica la calidad de la altura del sótano. 
+- **BsmtCond**: ordinal, indica la condición del sótano. 
+- **BsmtExposure**: ordinal, indica si hay muros al nivel jardín o de la salida exterior.
+- **BsmtFinType1**: ordinal, indica la calidad de las áreas acabadas del sótano.
+- **BsmtFinType2**: ordinal, indica la calidad del área acabada de un segundo sótano (si existe).
+- **Heating**: nominal, indica el tipo de calefacción. 
+- **HeatingQC**: ordinal, indica la calidad y condición de la calefacción. 
+- **CentralAir**: nominal, indica si hay aire acondicionado o no. 
+- **Electrical**: nominal, indica que tipo de sistema eléctrico tiene la casa. 
+- **Funcional**: ordinal, indica en una escala la funcionalidad de la vivienda. 
+- **FireplaceQu**: ordinal, indica la calidad de las chimeneas. 
+- **GarageType**: nominal, indica la localización del garage. 
+- **GarageFinish**: nominal, indica la calidad de los interiores del garaje. 
+- **GarageQual**: ordinal, indica la calidad del garaje. 
+- **GarageCond**: ordinal, indica la condición del garaje. 
+- **PavedDrive**: nominal, indica si la entrada para carros de la vivienda está pavimentada. 
+- **PoolQC**: ordinal, indica la calidad de la piscina de la vivienda. 
+- **Fence**: ordinal, indica la calidad de la valla/cerca de la vivienda.
+- **MiscFeature**: nominal, indica que característica adicional tiene la vivienda. 
+- **SaleType**: nominal, indica el tipo de venta.
+- **SaleCondition**: ordinal, indica la condición de la venta. 
+
+
+###Resumen general
+
+Antes se debe revisar un resumen general de los datos para tener una idea incial de como se comportan los datos. 
+
+```{r}
+summary(train[,-1])
+```
+
+Del resumen podemos obtener estos detalles interesantes:
+
+- En promedio, se han vendido más casas que fueron constuidas en el año 1971. La casa más moderna que se ha vendido en el datset fue construida en el año 2010. 
+
+- El dato mínimo en el área del deck de madera o de la piscina es 0, por lo que podemos intuir que varias casas del dataset no tienen piscina o deck de madera. Otra cosa interesante es que el dato máximo en estos 2 apartados está bastante alejado de la media, por lo que gran parte de las casas no cuentan con alguna de esas características. 
+
+- La casa más cara ha sido una de USD 755 000.00, mientras que la más barata fue una de USD 34,00.00. 
+
+- Todas las casas del dataset fueron vendidas entre el año 2006 y el año 2010. 
+
+- Hay registros de casas vendidas en casi todos los meses del año, sin embargo el promedio de mes de venta es mayo. 
+
+- No todas las viviendas cuentan con valores agregados como cobertizos, etc.
+
+
+Ahora debemos determinar que variables numéricas tienen bastantes NA para poder eliminarlas
+
+```{r}
+library(dplyr)
+
+# Detrminar las variables numéricas 
+numericas <- train %>% select_if(is.numeric)
+
+summary(numericas[, -1])
+```
+
+Algunas variables tienen NA's, en especial la llamada LorFrontage. Sustituiremos los NA's con la mediana. 
+
+```{r}
+train[is.na(train$LotFrontage),"LotFrontage"]<-median(numericas$LotFrontage,na.rm = T)
+train[is.na(train$MasVnrArea),"MasVnrArea"]<-median(numericas$MasVnrArea,na.rm = T)
+train[is.na(train$GarageYrBlt),"GarageYrBlt"]<-median(numericas$GarageYrBlt,na.rm = T)
+
+```
+Ahora analizamos que variables cualitativas tienen NA's
+
+```{r}
+categorical_vars <- c("MSSubClass", "MSZoning", "Street", "Alley", "LotShape", "LandContour", 
+                      "Utilities", "LotConfig", "LandSlope", "Neighborhood", "Condition1", 
+                      "Condition2", "BldgType", "HouseStyle", "OverallQual", "OverallCond", 
+                      "RoofStyle", "RoofMatl", "Exterior1st", "Exterior2nd", "MasVnrType", 
+                      "ExterQual", "ExterCond", "Foundation", "BsmtQual", "BsmtCond", 
+                      "BsmtExposure", "BsmtFinType1", "BsmtFinType2", "Heating", "HeatingQC", 
+                      "CentralAir", "Electrical", "Funcional", "FireplaceQu", "GarageType", 
+                      "GarageFinish", "GarageQual", "GarageCond", "PavedDrive", "PoolQC", 
+                      "Fence", "MiscFeature", "SaleType", "SaleCondition")
+
+# Contar NAs en cada variable categórica
+
+existing_categorical_vars <- intersect(categorical_vars, names(train))
+na_counts_cat <- sapply(train[existing_categorical_vars], function(x) sum(is.na(x)))
+
+# Imprimir el conteo de NAs
+print(na_counts_cat)
+
+```
+
+Algunas variables como PoolQC, Fence, MiscFeature o FireplaceQu tienen muchos NA's, por lo que pueden eliminarse. Otras variables como GarageQual, se tomará el NA como inexistente. 
+
+
+
+
+
+Ahora transformaremos las variables ordinales en numéricas. Sin embargo también transformaremos algunas variables nominales como el vecindario ya que estas pueden afectar el precio final
+
+```{r}
+
+train$LotShape <- as.numeric(factor(train$LotShape))
+train$LandContour <- as.numeric(factor(train$LandContour))
+train$Utilities <- as.numeric(factor(train$Utilities))
+train$LotConfig <- as.numeric(factor(train$LotConfig))
+train$LandSlope <- as.numeric(factor(train$LandSlope))
+train$Neighborhood <- as.numeric(factor(train$Neighborhood))
+train$Condition1 <- as.numeric(factor(train$Condition1))
+train$Condition2 <- as.numeric(factor(train$Condition2))
+train$BldgType <- as.numeric(factor(train$BldgType))
+train$HouseStyle <- as.numeric(factor(train$HouseStyle))
+train$RoofStyle <- as.numeric(factor(train$RoofStyle))
+train$RoofMatl <- as.numeric(factor(train$RoofMatl))
+train$Exterior1st <- as.numeric(factor(train$Exterior1st))
+train$Exterior2nd <- as.numeric(factor(train$Exterior2nd))
+train$MasVnrType <- as.numeric(factor(train$MasVnrType))
+train$Foundation <- as.numeric(factor(train$Foundation))
+train$Heating <- as.numeric(factor(train$Heating))
+train$CentralAir <- as.numeric(factor(train$CentralAir))
+train$Electrical <- as.numeric(factor(train$Electrical))
+train$GarageType <- as.numeric(factor(train$GarageType))
+train$PavedDrive <- as.numeric(factor(train$PavedDrive))
+train$MiscFeature <- as.numeric(factor(train$MiscFeature))
+train$SaleType <- as.numeric(factor(train$SaleType))
+
+
+train$OverallQual <- as.numeric(factor(train$OverallQual, ordered = TRUE))
+train$OverallCond <- as.numeric(factor(train$OverallCond, ordered = TRUE))
+train$ExterQual <- as.numeric(factor(train$ExterQual, ordered = TRUE))
+train$ExterCond <- as.numeric(factor(train$ExterCond, ordered = TRUE))
+train$BsmtQual <- as.numeric(factor(train$BsmtQual, ordered = TRUE))
+train$BsmtCond <- as.numeric(factor(train$BsmtCond, ordered = TRUE))
+train$BsmtExposure <- as.numeric(factor(train$BsmtExposure, ordered = TRUE))
+train$BsmtFinType1 <- as.numeric(factor(train$BsmtFinType1, ordered = TRUE))
+train$BsmtFinType2 <- as.numeric(factor(train$BsmtFinType2, ordered = TRUE))
+train$HeatingQC <- as.numeric(factor(train$HeatingQC, ordered = TRUE))
+train$Functional <- as.numeric(factor(train$Functional, ordered = TRUE))
+train$FireplaceQu <- as.numeric(factor(train$FireplaceQu, ordered = TRUE))
+train$GarageFinish <- as.numeric(factor(train$GarageFinish, ordered = TRUE))
+train$GarageQual <- as.numeric(factor(train$GarageQual, ordered = TRUE))
+train$GarageCond <- as.numeric(factor(train$GarageCond, ordered = TRUE))
+train$PoolQC <- as.numeric(factor(train$PoolQC, ordered = TRUE))
+train$Fence <- as.numeric(factor(train$Fence, ordered = TRUE))
+train$SaleCondition <- as.numeric(factor(train$SaleCondition, ordered = TRUE))
+
+train$MSZoning <- as.numeric(factor(train$MSZoning, ordered = TRUE))
+train$KitchenQual <- as.numeric(factor(train$KitchenQual, ordered = TRUE))
+
+
+
+```
+
+```{r}
+trainfinal <- train[, !(names(train) %in% c("Fence", "PoolQC", "MiscFeature", "FireplaceQu", "Alley", "Street"))]
+
+```
+
+
+
+###Distribución de la variable respuesta
+
+¿La variable respuesta sigue una distribución normal?
+
+####Histograma 
+
+```{r}
+library(ggplot2)
+
+salesPrice <- train[, "SalePrice"]
+
+ggplot(data.frame(salesPrice), aes(x = salesPrice)) +
+  geom_histogram(aes(y = ..density..), bins = 30, fill = "blue", alpha = 0.5) +
+  geom_density(color = "red", size = 1) +
+  ggtitle("Histograma y densidad de los precios de venta ")
+
+```
+Según el histograma, sales price sigue una distribución normal pero con un sesgo a la derecha.Esto indica que hay casas que se han vendido por un precio muchísimo mayor que el resto.  
+
+####QQ plot
+```{r}
+
+qqnorm(salesPrice, main = "Q-Q Plot de los precios de venta")
+qqline(salesPrice, col = "red", lwd = 2)
+
+
+```
+El QQ-plot sugiere que hay un sesgo, hay muchas casas que se han vendido por un precio por encima de lo normal. Esto indica la presencia de datos atípicos. 
+
+
+####Prueba de Kolmogorov-Smirnov
+
+```{r}
+shapiro.test(salesPrice)
+
+
+```
+Se obtiene un p-value de 2.2e-16, este es un valor extremadamente bajo, por lo que se usará la función log para transformar los datos. 
+
+```{r}
+trainfinal$logged_data <- log(train$SalePrice) 
+
+trainfinal[, c("SalePrice", "logged_data")]
+```
+```{r}
+summary(trainfinal["logged_data"])
+```
+
+
+Ahora transformamos los valores de precio de venta a una escala ¿menor, para hallar el precio original deberemos usar la función exp con el valor que hallemos con la predicción. 
+
+```{r}
+shapiro.test(trainfinal$logged_data)
+
+```
+La prueba de Shapiro sigue indicando que el p-value es bajo, sim embargo es más alto que el anterior, por lo que hemos reducido el sesgo original. 
+
+```{r}
+
+qqnorm(trainfinal$logged_data, main = "Q-Q Plot de los precios de venta")
+qqline(trainfinal$logged_data, col = "red", lwd = 2)
+
+```
+
+El QQ-plot indica que hemos reducido el sesgo a la derecha original aunque hay varios datos que no se ajustan a la distribución normal, sin embargo los resultados son aproximadamente iguales a una distribución normal. 
+
+###Efecto de las variables en la variable respuesta
+
+```{r}
+
+library(corrplot)
+library(GGally)
+
+
+matrix <- cor(trainfinal, use = "complete.obs")
+
+par(mar = c(4, 4, 3, 2), cex = 0.35)
+corrplot(matrix, method = "circle")
+
+
+corrplot(matrix)
+
+
+```
+
+El diagrama muestra las variables que más influencia tienen en logged prices. 
+
+
+
+
 
 ## Construcción del Modelo
 
