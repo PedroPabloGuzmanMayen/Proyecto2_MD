@@ -22,6 +22,8 @@ library(dplyr)
 library(car)
 library(Metrics)
 library(ggplot2)
+library(glmnet)
+library(gridExtra)
 
 train <- read.csv("train.csv")
 test <- read.csv("test.csv")
@@ -255,25 +257,47 @@ if(nrow(resultados) > 0) {
 }
 ```
 
----
-title: "Análisis de Grupos y Regresión Ridge para Datos de Vivienda"
-output: html_document
----
+## Conclusiones
 
-```{r configuracion, message=FALSE, warning=FALSE}
-# Cargar librerías necesarias
-library(tidyverse)
-library(cluster)
-library(factoextra)
-library(glmnet)
-library(caret)
-library(gridExtra)
+### Análisis de Datos
 
-# Asegurar reproducibilidad
+- Se identificaron 19 variables con valores faltantes en ambos conjuntos (entrenamiento y prueba)
+- Las variables con datos faltantes incluyen principalmente características estructurales como: LotFrontage, MasVnrType, elementos del sótano (BsmtQual, BsmtCond, etc.), garaje y características opcionales (PoolQC, Fence)
+
+### Modelo de Regresión Simple
+
+**Variable predictora:** GrLivArea (superficie habitable)
+Resultados:
+
+**Coeficiente de GrLivArea:** 105.699 (p < 2e-16)
+**R² ajustado: 0.5043**
+**Error estándar residual:** 56,830
+
+Por cada pie cuadrado adicional, el precio de venta aumenta aproximadamente $105.70
+
+### Modelo de Regresión Múltiple
+
+**Variables predictoras:** GrLivArea, OverallQual, YearBuilt, GarageCars
+Resultados:
+
+**GrLivArea:** 56.41 (p < 2e-16)
+**OverallQual:** 22,570 (p < 2e-16)
+**YearBuilt:** 370.3 (p < 1.65e-12)
+**GarageCars:** 16,430 (p < 2.12e-14)
+**R² ajustado:** 0.7454
+**Error estándar residual:** 40,730
+
+## Comparación de Modelos
+El modelo múltiple mejora significativamente la capacidad predictiva (R² incrementa de 0.49 a 0.77)
+La calidad general de la vivienda (OverallQual) y la superficie habitable son los predictores más influyentes
+La reducción del RMSE en aproximadamente 17,000 dólares indica una mejora sustancial en la precisión de las predicciones
+El año de construcción y el número de plazas de garaje aportan información valiosa para la predicción de precios
+
+```{r}
 set.seed(812)
 ```
 
-## 1. Análisis de Grupos (K-means)
+## Análisis de Grupos (K-means)
 
 ```{r preparar_datos_cluster}
 # Identificar las filas sin NA
@@ -403,44 +427,9 @@ Distribución de Precios por Cluster
 - Cluster 3 (verde): Presenta precios similares al Cluster 1 pero con una mayor dispersión, lo que sugiere una mezcla de viviendas de diferentes categorías.
 
 En resumen, con base a los gráficos generados y la información encontrada, encontramos que:
+
 - Las viviendas de alto valor (Cluster 1): Precios elevados, acabados de mayor calidad.
 - Las viviendas económicas (Cluster 2): Precios más bajos y menos variabilidad.
 - Las viviendas de precio medio-alto (Cluster 3): Similar al Cluster 1 pero con mayor variabilidad en precios.
 
 
-
-## Conclusiones
-
-### Análisis de Datos
-
-- Se identificaron 19 variables con valores faltantes en ambos conjuntos (entrenamiento y prueba)
-- Las variables con datos faltantes incluyen principalmente características estructurales como: LotFrontage, MasVnrType, elementos del sótano (BsmtQual, BsmtCond, etc.), garaje y características opcionales (PoolQC, Fence)
-
-### Modelo de Regresión Simple
-
-**Variable predictora:** GrLivArea (superficie habitable)
-Resultados:
-
-**Coeficiente de GrLivArea:** 105.699 (p < 2e-16)
-**R² ajustado: 0.5043**
-**Error estándar residual:** 56,830
-
-Por cada pie cuadrado adicional, el precio de venta aumenta aproximadamente $105.70
-
-### Modelo de Regresión Múltiple
-
-**Variables predictoras:** GrLivArea, OverallQual, YearBuilt, GarageCars
-Resultados:
-
-**GrLivArea:** 56.41 (p < 2e-16)
-**OverallQual:** 22,570 (p < 2e-16)
-**YearBuilt:** 370.3 (p < 1.65e-12)
-**GarageCars:** 16,430 (p < 2.12e-14)
-**R² ajustado:** 0.7454
-**Error estándar residual:** 40,730
-
-## Comparación de Modelos
-El modelo múltiple mejora significativamente la capacidad predictiva (R² incrementa de 0.49 a 0.77)
-La calidad general de la vivienda (OverallQual) y la superficie habitable son los predictores más influyentes
-La reducción del RMSE en aproximadamente 17,000 dólares indica una mejora sustancial en la precisión de las predicciones
-El año de construcción y el número de plazas de garaje aportan información valiosa para la predicción de precios
