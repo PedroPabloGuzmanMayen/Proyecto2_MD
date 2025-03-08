@@ -34,7 +34,7 @@ training_data$Category <- as.factor(training_data$Category)
 table(training_data$Category)
 
 ```
-# Explicacion
+## Explicacion de las Variables
 
 ```{r Modelo de Regresion}
 # Crear modelo de regresión con árbol de decisión
@@ -48,5 +48,32 @@ summary(modelo_arbol)
 rpart.plot(modelo_arbol, type = 3, extra = 101, fallen.leaves = TRUE, cex = 0.7, main = "Árbol de Regresión para SalePrice")
 
 ```
+## Interpretacion del Arbol
+
+```{r Comparacion con la Regresion lineal}
+
+```
+## Interpretacion de la Comparacion
+
+```{r Tuneo de la profundidad}
+# Crear árboles con diferentes niveles de profundidad
+arbol_2 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 2))
+arbol_3 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 3))
+arbol_8 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 8))
+
+# Función para calcular métricas de cada modelo
+evaluar_arbol <- function(modelo, nombre) {
+  pred <- predict(modelo, training_data)
+  R2 <- 1 - sum((training_data$SalePrice - pred)^2) / sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
+  RMSE <- sqrt(mean((training_data$SalePrice - pred)^2))
+  cat(nombre, "- R2:", R2, " RMSE:", RMSE, "\n")
+}
+
+# Evaluar cada árbol
+evaluar_arbol(arbol_2, "Árbol 2 Niveles")
+evaluar_arbol(arbol_3, "Árbol 3 Niveles")
+evaluar_arbol(arbol_8, "Árbol 8 Niveles")
+```
+
 
 
