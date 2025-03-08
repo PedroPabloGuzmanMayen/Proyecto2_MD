@@ -9,6 +9,7 @@ library(ggplot2)
 library(rpart)
 library(rpart.plot)
 library(caret)
+library(randomForest)
 
 ```
 
@@ -117,5 +118,48 @@ print(resultados)
 # Vamos a elegir el mejor modelo basado en R2 más alto y menor RMSE
 mejor_profundidad <- resultados$Profundidad[which.max(resultados$R2)]
 cat("Mejor profundidad:", mejor_profundidad, "\n")
+```
+## Explicacion de la seleccion
+
+```{r Random Forest}
+# Cargar librerías necesarias
+library(randomForest)
+
+# Función para rellenar valores faltantes
+impute_missing_values <- function(df) {
+  for (col in colnames(df)) {
+    if (is.numeric(df[[col]])) {
+      df[[col]][is.na(df[[col]])] <- median(df[[col]], na.rm = TRUE)  # Rellenar con la mediana
+    } else {
+      df[[col]][is.na(df[[col]])] <- names(sort(table(df[[col]]), decreasing = TRUE))[1]  # Rellenar con la moda
+    }
+  }
+  return(df)
+}
+
+# Rellenar valores faltantes
+training_data_filled <- impute_missing_values(training_data)
+
+# Entrenar el modelo Random Forest
+modelo_rf <- randomForest(SalePrice ~ ., data = training_data_filled, ntree = 500, mtry = 4, importance = TRUE)
+
+# Predecir valores
+predicciones_rf <- predict(modelo_rf, training_data_filled)
+
+# Evaluar desempeño
+SSE_rf <- sum((training_data_filled$SalePrice - predicciones_rf)^2)
+SST_rf <- sum((training_data_filled$SalePrice - mean(training_data_filled$SalePrice))^2)
+R2_rf <- 1 - (SSE_rf / SST_rf)
+RMSE_rf <- sqrt(mean((training_data_filled$SalePrice - predicciones_rf)^2))
+
+cat("Random Forest - R2:", R2_rf, " RMSE:", RMSE_rf, "\n")
+
+# Importancia de las variables
+varImpPlot(modelo_rf, main = "Importancia de las Variables en Random Forest")
+```
+## Comparacion del Random Forest con el arbol de decision
+
+```{r Evaluacion y comparacin de modelos}
+
 ```
 
