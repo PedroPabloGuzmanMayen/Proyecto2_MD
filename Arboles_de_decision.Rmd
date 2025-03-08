@@ -1,0 +1,52 @@
+---
+title: "Arboles de Decision"
+author: "Gustavo Cruz; Pedro Guzman"
+date: "2025-03-08"
+output: html_document
+---
+```{r Chunk para instalar paquetes}
+library(ggplot2)
+library(rpart)
+library(rpart.plot)
+
+```
+
+
+# Arboles de Decision
+
+```{r Creacion Variable Respuesta}
+
+training_data <- read.csv("train.csv")
+
+mean_price <- mean(training_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(training_data$SalePrice, na.rm = TRUE)
+
+lower_limit <- mean_price - (1.5 * sd_price)
+upper_limit <- mean_price + (1.5 * sd_price)
+
+training_data$Category <- ifelse(training_data$SalePrice < lower_limit, "Baratas",
+                           ifelse(training_data$SalePrice > upper_limit, "Caras", "Medianas"))
+
+# Convertir a factor para la clasificación
+training_data$Category <- as.factor(training_data$Category)
+
+# Mostrar en tabla la data categoria
+table(training_data$Category)
+
+```
+# Explicacion
+
+```{r Modelo de Regresion}
+# Crear modelo de regresión con árbol de decisión
+
+modelo_arbol <- rpart(SalePrice ~ ., data = training_data)
+
+# Resumen del modelo
+summary(modelo_arbol)
+
+# Graficar árbol
+rpart.plot(modelo_arbol, type = 3, extra = 101, fallen.leaves = TRUE, cex = 0.7, main = "Árbol de Regresión para SalePrice")
+
+```
+
+
