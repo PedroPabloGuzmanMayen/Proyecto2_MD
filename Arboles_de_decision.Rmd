@@ -8,6 +8,7 @@ output: html_document
 library(ggplot2)
 library(rpart)
 library(rpart.plot)
+library(caret)
 
 ```
 
@@ -74,6 +75,47 @@ evaluar_arbol(arbol_2, "Árbol 2 Niveles")
 evaluar_arbol(arbol_3, "Árbol 3 Niveles")
 evaluar_arbol(arbol_8, "Árbol 8 Niveles")
 ```
+## Explicacion de los resultados
 
+```{r Evaluacion del desempeño del arbol}
+# Configurar la validación cruzada (en 10 folds)
+control <- trainControl(method = "cv", number = 10)
 
+# Entrenar el modelo usando validación cruzada
+modelo_cv <- train(Category ~ GrLivArea + OverallQual + GarageCars + YearBuilt, 
+                   data = training_data, 
+                   method = "rpart",
+                   trControl = control,
+                   tuneLength = 10)
+
+# Mostrar resultados
+print(modelo_cv)
+
+# Gráfica del modelo ajustado
+rpart.plot(modelo_cv$finalModel, type = 5, extra = 104, fallen.leaves = TRUE, 
+           cex = 0.8, box.palette = "RdYlGn", main = "Árbol con Validación Cruzada")
+```
+## Explicacion del desempeño del arbol (Validacion Cruzada y Tuneo del Arbol)
+
+```{r Seleccion y comparacion del mejor modelo con diferente profundidad}
+# Evaluar diferentes profundidades del árbol, lo haremos hasta 10 de 2 en 2
+profundidades <- c(2, 4, 6, 8, 10)
+resultados <- data.frame(Profundidad = profundidades, R2 = numeric(length(profundidades)), RMSE = numeric(length(profundidades)))
+
+for (i in seq_along(profundidades)) {
+  modelo_temp <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = profundidades[i]))
+  predicciones <- predict(modelo_temp, training_data)
+  
+  SSE <- sum((training_data$SalePrice - predicciones)^2)
+  SST <- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
+  resultados$R2[i] <- 1 - (SSE / SST)
+  resultados$RMSE[i] <- sqrt(mean((training_data$SalePrice - predicciones)^2))
+}
+
+print(resultados)
+
+# Vamos a elegir el mejor modelo basado en R2 más alto y menor RMSE
+mejor_profundidad <- resultados$Profundidad[which.max(resultados$R2)]
+cat("Mejor profundidad:", mejor_profundidad, "\n")
+```
 
