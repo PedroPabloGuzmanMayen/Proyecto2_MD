@@ -10,64 +10,69 @@ library(rpart)
 library(rpart.plot)
 library(caret)
 library(randomForest)
+library(dplyr)
 
 ```
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning = FALSE)
+```
 
-# Arboles de Decision
+Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
 
-```{r Creacion Variable Respuesta}
+# Arbol de regresión
 
+```{r}
 training_data <- read.csv("train.csv")
+#Convertir a factores
+train<-training_data %>% mutate_if(is.character,as.factor)
 
-mean_price <- mean(training_data$SalePrice, na.rm = TRUE)
-sd_price <- sd(training_data$SalePrice, na.rm = TRUE)
-
-lower_limit <- mean_price - (1.5 * sd_price)
-upper_limit <- mean_price + (1.5 * sd_price)
-
-training_data$Category <- ifelse(training_data$SalePrice < lower_limit, "Baratas",
-                           ifelse(training_data$SalePrice > upper_limit, "Caras", "Medianas"))
-
-# Convertir a factor para la clasificación
-training_data$Category <- as.factor(training_data$Category)
-
-# Mostrar en tabla la data categoria
-table(training_data$Category)
-
+#Dividir el data set para pruebas y entrenamieto
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(train),nrow(train)*porciento)
+train <- train[corte,]
+test <- train[-corte,]
+test_resp <- test$SalePrice
+test$SalePrice <- NULL
+tree = rpart(SalePrice ~ ., data = train[, -1])
+summary(tree)
+rpart.plot(tree)
 ```
-## Explicacion de las Variables
+El resumen del árbol muestra que las vaariables de importancia son la calidad de los acabados de la casa, el vecindario en el que se ubica y el área habitable sobre el nivel del suelo. El árbol de regresión primero evalúa la calidad de los detalles, si esta es mayor que 8 evalúa de nuevo la cantidad y luego evalúa la cantidad de área habitable para asignarle un precio. Si la calidad de los acabados es menor que 8, evalúa en que vecindario se ubica la vivienda, finalmente evalua el área habitable, de nuevo el vecindario. 
 
-```{r Modelo de Regresion}
-# Crear modelo de regresión con árbol de decisión
 
-modelo_arbol <- rpart(SalePrice ~ ., data = training_data)
+#Predicciones del modelo creado
 
-# Resumen del modelo
-summary(modelo_arbol)
+```{r prediccion modelo1}
+predModelo1 <- predict(tree, newdata = test)
+rmseModelo1test<-RMSE(predModelo1,test_resp)
+mseModelo1test<-mean((predModelo1 - test_resp)^2)
+predModelo1Train <- predict(tree, newdata = train[,-1])
+rmseModelo1train<-RMSE(predModelo1Train,train$SalePrice)
+mseModelo1train<-mean((predModelo1Train - train$SalePrice)^2) 
 
-# Graficar árbol
-rpart.plot(modelo_arbol, type = 3, extra = 101, fallen.leaves = TRUE, cex = 0.7, main = "Árbol de Regresión para SalePrice")
-
+mseModelo1test
+mseModelo1train
 ```
-## Interpretacion del Arbol
 
-```{r Comparacion con la Regresion lineal}
+El error medio cuadrado es `r mseModelo1test` en el conjunto de prueba, mientras que el error de entrenamiento es   `r mseModelo1train`.
+Sepuede notarque el error el mayor en los datos de prueba que en los de entrenamiento, esto indica un sobreajuste. 
 
-```
-## Interpretacion de la Comparacion
+#Modelos con varios niveles
 
 ```{r Tuneo de la profundidad}
 # Crear árboles con diferentes niveles de profundidad
-arbol_2 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 2))
-arbol_3 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 3))
-arbol_8 <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = 8))
+arbol_2 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 2))
+arbol_3 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 3))
+arbol_8 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 8))
+arbol_16 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 16))
 
 # Función para calcular métricas de cada modelo
 evaluar_arbol <- function(modelo, nombre) {
-  pred <- predict(modelo, training_data)
-  R2 <- 1 - sum((training_data$SalePrice - pred)^2) / sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
-  RMSE <- sqrt(mean((training_data$SalePrice - pred)^2))
+  pred <- predict(modelo, train)
+  R2 <- 1 - sum((train$SalePrice - pred)^2) / sum((train$SalePrice - mean(train$SalePrice))^2)
+  RMSE <- sqrt(mean((train$SalePrice - pred)^2))
   cat(nombre, "- R2:", R2, " RMSE:", RMSE, "\n")
 }
 
@@ -75,7 +80,63 @@ evaluar_arbol <- function(modelo, nombre) {
 evaluar_arbol(arbol_2, "Árbol 2 Niveles")
 evaluar_arbol(arbol_3, "Árbol 3 Niveles")
 evaluar_arbol(arbol_8, "Árbol 8 Niveles")
+evaluar_arbol(arbol_16, "Árbol 16 Niveles")
 ```
+Se observa que a partir de los 8 niveles, el MSE y el R2 no cambian, por lo que usar 8 niveles de profunidad es adecuado. 
+
+# Comparación
+
+Se obtuvieron mejores resultados en este modelo pues el error medio cuadrado es menor al de la regresión lineal 
+
+
+# Creación de una nueva variable
+
+```{r Creacion Variable Respuesta}
+
+training_data <- read.csv("train.csv")
+training_data<-training_data %>% mutate_if(is.character,as.factor)
+
+mean_price <- mean(training_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(training_data$SalePrice, na.rm = TRUE)
+
+lower_limit <- median(training_data$SalePrice)  
+upper_limit <- mad(training_data$SalePrice) 
+
+training_data$Category <- ifelse(training_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                           ifelse(training_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+# Convertir a factor para la clasificación
+training_data$Category <- as.factor(training_data$Category)
+
+# Mostrar en tabla la data categoria
+table(training_data$Category)
+
+training_data
+
+```
+Se usaron estos límites pues en el análisis exploratorio de la hoja anterior se determinó que la distribución de sales price no era normal. Por lo que la mejor opción era usar la mediana y la desviación absoluta ya que estos valores dependen de la posición relativa de los datos y no de su valor absoluto. 
+
+## Modelo con las nuevas variables. 
+
+```{r Modelo de Regresion}
+# Crear modelo de regresión con árbol de decisión
+
+data <- training_data %>% select(-SalePrice)
+
+modelo_arbol <- rpart(Category ~ ., data = data, control = rpart.control(maxdepth = 8))
+
+# Resumen del modelo
+summary(modelo_arbol)
+
+# Graficar árbol
+rpart.plot(modelo_arbol,  main = "Árbol de Regresión para SalePrice")
+
+```
+## Interpretacion del Arbol
+
+El árbol clasifica una casa en base a su precio (Alto, bajo o mediano). Para determinar eso evalua factores como la calidad de los acabados, el área habitable, etc. 
+
+
 ## Explicacion de los resultados
 
 ```{r Evaluacion del desempeño del arbol}
