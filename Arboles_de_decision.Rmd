@@ -4,6 +4,11 @@ author: "Gustavo Cruz; Pedro Guzman"
 date: "2025-03-08"
 output: html_document
 ---
+
+#### Repositorio
+Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+[Revisar la branch correspondiente a los Arboles de Decision]
+
 ```{r Chunk para instalar paquetes}
 library(ggplot2)
 library(rpart)
@@ -18,9 +23,7 @@ library(dplyr)
 knitr::opts_chunk$set(warning = FALSE)
 ```
 
-Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
-
-# Arbol de regresión
+## Arbol de regresión
 
 ```{r}
 training_data <- read.csv("train.csv")
@@ -39,10 +42,11 @@ tree = rpart(SalePrice ~ ., data = train[, -1])
 summary(tree)
 rpart.plot(tree)
 ```
+
 El resumen del árbol muestra que las vaariables de importancia son la calidad de los acabados de la casa, el vecindario en el que se ubica y el área habitable sobre el nivel del suelo. El árbol de regresión primero evalúa la calidad de los detalles, si esta es mayor que 8 evalúa de nuevo la cantidad y luego evalúa la cantidad de área habitable para asignarle un precio. Si la calidad de los acabados es menor que 8, evalúa en que vecindario se ubica la vivienda, finalmente evalua el área habitable, de nuevo el vecindario. 
 
 
-#Predicciones del modelo creado
+## Predicciones del modelo creado
 
 ```{r prediccion modelo1}
 predModelo1 <- predict(tree, newdata = test)
@@ -59,14 +63,19 @@ mseModelo1train
 El error medio cuadrado es `r mseModelo1test` en el conjunto de prueba, mientras que el error de entrenamiento es   `r mseModelo1train`.
 Sepuede notarque el error el mayor en los datos de prueba que en los de entrenamiento, esto indica un sobreajuste. 
 
-#Modelos con varios niveles
+## Modelos con varios niveles
 
 ```{r Tuneo de la profundidad}
-# Crear árboles con diferentes niveles de profundidad
-arbol_2 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 2))
-arbol_3 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 3))
-arbol_8 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 8))
-arbol_16 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 16))
+# Vector para almacenar modelos
+modelos <- list()
+
+# Crear árboles con diferentes niveles de profundidad usando un bucle for
+for (i in 1:8) {
+  nombre_modelo <- paste0("arbol_", i)
+  modelos[[nombre_modelo]] <- rpart(SalePrice ~ ., 
+                                   data = train, 
+                                   control = rpart.control(maxdepth = i))
+}
 
 # Función para calcular métricas de cada modelo
 evaluar_arbol <- function(modelo, nombre) {
@@ -76,20 +85,28 @@ evaluar_arbol <- function(modelo, nombre) {
   cat(nombre, "- R2:", R2, " RMSE:", RMSE, "\n")
 }
 
-# Evaluar cada árbol
-evaluar_arbol(arbol_2, "Árbol 2 Niveles")
-evaluar_arbol(arbol_3, "Árbol 3 Niveles")
-evaluar_arbol(arbol_8, "Árbol 8 Niveles")
-evaluar_arbol(arbol_16, "Árbol 16 Niveles")
+# Evaluar cada árbol usando un bucle for
+for (i in 1:8) {
+  nombre_modelo <- paste0("arbol_", i)
+  evaluar_arbol(modelos[[nombre_modelo]], paste("Árbol", i, "Niveles"))
+}
 ```
-Se observa que a partir de los 8 niveles, el MSE y el R2 no cambian, por lo que usar 8 niveles de profunidad es adecuado. 
 
-# Comparación
+### Análisis de la profundidad óptima
 
-Se obtuvieron mejores resultados en este modelo pues el error medio cuadrado es menor al de la regresión lineal 
+El ajuste de la profundidad del árbol es un factor clave para equilibrar el sesgo y la varianza del modelo. En este caso, al evaluar diferentes niveles de profundidad, del 1 al 8, observamos una mejora progresiva en las métricas de desempeño hasta alcanzar los 4 niveles.
 
+A partir del nivel 4, el R² se estabiliza en 0.8092 y el RMSE en 37,033.09, lo que indica que agregar más niveles no proporciona una ganancia adicional en precisión. Por lo que con base a los resultados, determinamos que el modelo ha capturado la complejidad del problema sin la necesidad de utilizar más niveles.
 
-# Creación de una nueva variable
+## Comparación de Modelos [Regresion lineal vs Arboles de Decision con ajuste de profundidad]
+
+En comparación con el modelo de regresión lineal, el modelo de árboles de decisión con ajuste de profundidad muestra un mejor desempeño, ya que logra reducir el error medio cuadrado (MSE) y mejorar la capacidad predictiva. Mientras que la regresión lineal presenta un MSE de 1.7289 × 10⁹ en los datos de prueba y un MSE de 1.3714 × 10⁹ en el entrenamiento, el modelo de árboles alcanza un MSE considerablemente menor después de optimizar la profundidad.
+
+Además, el modelo de regresión lineal muestra signos de sobreajuste, ya que su error en el entrenamiento es notablemente menor que en la prueba. En cambio, el ajuste de profundidad en los árboles de decisión ha permitido encontrar un punto de equilibrio entre sesgo y varianza, logrando un modelo más generalizable sin perder precisión.
+
+En conclusión, el modelo de árboles de decisión demuestra ser una mejor alternativa en términos de precisión y estabilidad, evidenciando que una correcta selección de hiperparámetros puede mejorar significativamente el rendimiento predictivo.
+
+## Creación de una nueva variable
 
 ```{r Creacion Variable Respuesta}
 
@@ -111,8 +128,7 @@ training_data$Category <- as.factor(training_data$Category)
 # Mostrar en tabla la data categoria
 table(training_data$Category)
 
-training_data
-
+#training_data
 ```
 Se usaron estos límites pues en el análisis exploratorio de la hoja anterior se determinó que la distribución de sales price no era normal. Por lo que la mejor opción era usar la mediana y la desviación absoluta ya que estos valores dependen de la posición relativa de los datos y no de su valor absoluto. 
 
@@ -220,7 +236,7 @@ varImpPlot(modelo_rf, main = "Importancia de las Variables en Random Forest")
 ```
 ## Comparacion del Random Forest con el arbol de decision
 
-```{r Evaluacion y comparacin de modelos}
+```{r Evaluacion y comparacion de modelos}
 
 ```
 
