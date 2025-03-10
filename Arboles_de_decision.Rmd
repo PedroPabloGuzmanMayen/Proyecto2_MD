@@ -66,16 +66,12 @@ Sepuede notarque el error el mayor en los datos de prueba que en los de entrenam
 ## Modelos con varios niveles
 
 ```{r Tuneo de la profundidad}
-# Vector para almacenar modelos
-modelos <- list()
-
-# Crear árboles con diferentes niveles de profundidad usando un bucle for
-for (i in 1:8) {
-  nombre_modelo <- paste0("arbol_", i)
-  modelos[[nombre_modelo]] <- rpart(SalePrice ~ ., 
-                                   data = train, 
-                                   control = rpart.control(maxdepth = i))
-}
+# Crear árboles con diferentes niveles de profundidad
+arbol_2 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 2))
+arbol_3 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 3))
+arbol_4 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 4))
+arbol_8 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 8))
+arbol_16 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 16))
 
 # Función para calcular métricas de cada modelo
 evaluar_arbol <- function(modelo, nombre) {
@@ -84,12 +80,13 @@ evaluar_arbol <- function(modelo, nombre) {
   RMSE <- sqrt(mean((train$SalePrice - pred)^2))
   cat(nombre, "- R2:", R2, " RMSE:", RMSE, "\n")
 }
+# Evaluar cada árbol
+evaluar_arbol(arbol_2, "Árbol 2 Niveles")
+evaluar_arbol(arbol_3, "Árbol 3 Niveles")
+evaluar_arbol(arbol_4, "Árbol 4 Niveles")
+evaluar_arbol(arbol_8, "Árbol 8 Niveles")
+evaluar_arbol(arbol_16, "Árbol 16 Niveles")
 
-# Evaluar cada árbol usando un bucle for
-for (i in 1:8) {
-  nombre_modelo <- paste0("arbol_", i)
-  evaluar_arbol(modelos[[nombre_modelo]], paste("Árbol", i, "Niveles"))
-}
 ```
 
 ### Análisis de la profundidad óptima
@@ -203,29 +200,6 @@ El peor rendimiento se observa con cp = 0.352342159, donde la precisión cae a 7
 
 La validación cruzada muestra que el modelo de clasificación alcanza su mejor rendimiento con un parámetro de complejidad (cp) de 0.00305499, logrando una precisión de 83.77% y un Kappa de 0.6427. Este resultado confirma que un árbol relativamente complejo es necesario para clasificar adecuadamente las propiedades en las categorías "Baratas", "Medianas" y "Caras". Por otro lado, el tuneo del árbol mediante el ajuste de la profundidad máxima a 4 niveles permitió identificar que las variables más determinantes son OverallQual, Neighborhood, TotalBsmtSF, GrLivArea y GarageCars, siendo OverallQual la de mayor impacto en la predicción. Mientras la validación cruzada optimiza el parámetro de complejidad para mejorar la generalización del modelo, el tuneo del árbol revela la estructura jerárquica de decisiones y la importancia relativa de cada característica. Esta combinación de enfoques demuestra que el modelo captura eficientemente los patrones que determinan la categoría de precio, manteniendo un equilibrio entre precisión y capacidad interpretativa, lo que valida el enfoque de categorización basado en la mediana y desviación absoluta media (mad) como una estrategia efectiva para este conjunto de datos.
 
-```{r Seleccion y comparacion del mejor modelo con diferente profundidad}
-# Evaluar diferentes profundidades del árbol, lo haremos hasta 10 de 2 en 2
-profundidades <- c(2, 4, 6, 8, 10)
-resultados <- data.frame(Profundidad = profundidades, R2 = numeric(length(profundidades)), RMSE = numeric(length(profundidades)))
-
-for (i in seq_along(profundidades)) {
-  modelo_temp <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = profundidades[i]))
-  predicciones <- predict(modelo_temp, training_data)
-  
-  SSE <- sum((training_data$SalePrice - predicciones)^2)
-  SST <- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
-  resultados$R2[i] <- 1 - (SSE / SST)
-  resultados$RMSE[i] <- sqrt(mean((training_data$SalePrice - predicciones)^2))
-}
-
-print(resultados)
-
-# Vamos a elegir el mejor modelo basado en R2 más alto y menor RMSE
-mejor_profundidad <- resultados$Profundidad[which.max(resultados$R2)]
-cat("Mejor profundidad:", mejor_profundidad, "\n")
-```
-
-## Explicacion de la seleccion
 
 ```{r Random Forest}
 # Cargar librerías necesarias
@@ -263,7 +237,11 @@ cat("Random Forest - R2:", R2_rf, " RMSE:", RMSE_rf, "\n")
 # Importancia de las variables
 varImpPlot(modelo_rf, main = "Importancia de las Variables en Random Forest")
 ```
+
 ## Comparacion del Random Forest con el arbol de decision
+
+El modelo Random Forest demuestra un rendimiento superior al árbol de decisión individual, alcanzando un R² de 0.9722 y un RMSE de 13,249.25. Esta  mejora refleja la capacidad del Random Forest para capturar patrones más complejos en los datos. El análisis de importancia de variables revela que GrLivArea (área habitable) y OverallQual (calidad general) son los predictores más influyentes tanto en términos de incremento del error cuadrático medio como en la pureza de los nodos. Otras variables destacadas incluyen Neighborhood, Category, YearBuilt y TotalBsmtSF. La gráfica muestra una distribución clara de importancia, con un grupo de variables dominantes seguido de predictores con contribución moderada y un conjunto extenso de variables con influencia marginal. Esta jerarquía proporciona insights valiosos sobre los factores más determinantes en la predicción del precio de venta de las propiedades.
+
 
 ```{r Evaluacion y comparacion de modelos}
 
