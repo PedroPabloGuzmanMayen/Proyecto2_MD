@@ -130,7 +130,12 @@ table(training_data$Category)
 
 #training_data
 ```
-Se usaron estos límites pues en el análisis exploratorio de la hoja anterior se determinó que la distribución de sales price no era normal. Por lo que la mejor opción era usar la mediana y la desviación absoluta ya que estos valores dependen de la posición relativa de los datos y no de su valor absoluto. 
+
+### Explicacion de la nueva variable
+
+Para clasificar las propiedades en categorías basadas en su precio de venta (SalePrice), se ha decidido utilizar la mediana y la desviación absoluta de la mediana (mad). Esto se debe a que, en el análisis exploratorio previo, se determinó que la distribución de los precios de venta no sigue una distribución normal, por lo que el uso de la media y la desviación estándar podría no ser la mejor opción. La mediana es más robusta frente a valores atípicos, mientras que mad mide la dispersión de los datos sin verse afectado por valores extremos. 
+
+La variable Category se ha creado asignando las propiedades en tres grupos: "Baratas", "Medianas" y "Caras". Aquellas con un precio inferior al umbral de mediana - mad se etiquetan como "Baratas", mientras que aquellas con un precio superior a mediana + mad se consideran "Caras". Las propiedades cuyo precio se encuentra entre estos dos valores se categorizan como "Medianas". Finalmente, la variable se convierte en un factor para facilitar su uso en modelos de clasificación. Esta estrategia de categorización permite una segmentación más representativa del mercado inmobiliario y es útil para analizar patrones en función de características de las viviendas.
 
 ## Modelo con las nuevas variables. 
 
@@ -148,12 +153,10 @@ summary(modelo_arbol)
 rpart.plot(modelo_arbol,  main = "Árbol de Regresión para SalePrice")
 
 ```
-## Interpretacion del Arbol
 
-El árbol clasifica una casa en base a su precio (Alto, bajo o mediano). Para determinar eso evalua factores como la calidad de los acabados, el área habitable, etc. 
+## Interpretacion del gráfico
 
-
-## Explicacion de los resultados
+Tras definir la variable Category, se ha construido un modelo de clasificación basado en árboles de decisión (rpart). Para ello, se ha tomado el conjunto de datos original excluyendo la variable SalePrice, ya que ahora estamos interesados en predecir la categoría en la que se encuentra cada propiedad en función de sus características estructurales y de ubicación. El modelo ha sido configurado con una profundidad máxima de 8 para evitar sobreajuste y mejorar la interpretabilidad de los resultados. El resumen del modelo indica que las características más relevantes para la clasificación son OverallQual (calidad general del inmueble), Neighborhood (vecindario), TotalBsmtSF (superficie total del sótano), GrLivArea (área habitable sobre el suelo) y GarageCars (capacidad del garaje). Se observa que la variable con mayor importancia es OverallQual, lo que sugiere que la calidad constructiva tiene un impacto significativo en la categorización del precio de las propiedades. Además, la estructura del árbol refleja que el modelo es capaz de segmentar los datos en diferentes nodos en función de estas variables clave. Este análisis confirma que la categorización basada en la mediana y mad permite capturar patrones significativos dentro del conjunto de datos.
 
 ```{r Evaluacion del desempeño del arbol}
 # Configurar la validación cruzada (en 10 folds)
@@ -173,7 +176,32 @@ print(modelo_cv)
 rpart.plot(modelo_cv$finalModel, type = 5, extra = 104, fallen.leaves = TRUE, 
            cex = 0.8, box.palette = "RdYlGn", main = "Árbol con Validación Cruzada")
 ```
+
+## Interpretacion del Arbol
+
+Los datos muestran los resultados de un modelo de clasificación CART (Classification and Regression Trees) que fue entrenado para clasificar casas en tres categorías: "Baratas", "Medianas" y "Caras", basándose en cuatro predictores: GrLivArea (área habitable), OverallQual (calidad general), GarageCars (capacidad del garaje) y YearBuilt (año de construcción).
+Estructura del dataset
+
+Muestras: 1460 propiedades en total
+Predictores: 4 variables utilizadas para la predicción
+Clases: 3 categorías de precios (Baratas, Medianas, Caras)
+
+**Validación cruzada**
+El modelo fue evaluado mediante validación cruzada de 10 partes (10-fold), lo que significa que los datos se dividieron en 10 grupos, entrenando con 9 grupos y validando con 1, repitiendo este proceso 10 veces.
+
+Donde se obtuvieron los siguientes resultados:
+
+**Mejor precisión** (Accuracy): 0.8377 (83.77%) obtenida con cp = 0.003054990. Esto significa que el modelo clasificó correctamente aproximadamente el 83.77% de las casas en su categoría de precio correcta.
+
+
+**Mejor Kappa:** 0.6427631 con el mismo valor de cp. El estadístico Kappa mide la concordancia entre la clasificación predicha y la real, ajustada por el azar. Un valor de 0.64 indica una concordancia "sustancial".
+
+A medida que el cp aumenta (árboles más simples), tanto la precisión como el Kappa tienden a disminuir.
+El peor rendimiento se observa con cp = 0.352342159, donde la precisión cae a 71.29% y Kappa a 0.2012.
+
 ## Explicacion del desempeño del arbol (Validacion Cruzada y Tuneo del Arbol)
+
+La validación cruzada muestra que el modelo de clasificación alcanza su mejor rendimiento con un parámetro de complejidad (cp) de 0.00305499, logrando una precisión de 83.77% y un Kappa de 0.6427. Este resultado confirma que un árbol relativamente complejo es necesario para clasificar adecuadamente las propiedades en las categorías "Baratas", "Medianas" y "Caras". Por otro lado, el tuneo del árbol mediante el ajuste de la profundidad máxima a 4 niveles permitió identificar que las variables más determinantes son OverallQual, Neighborhood, TotalBsmtSF, GrLivArea y GarageCars, siendo OverallQual la de mayor impacto en la predicción. Mientras la validación cruzada optimiza el parámetro de complejidad para mejorar la generalización del modelo, el tuneo del árbol revela la estructura jerárquica de decisiones y la importancia relativa de cada característica. Esta combinación de enfoques demuestra que el modelo captura eficientemente los patrones que determinan la categoría de precio, manteniendo un equilibrio entre precisión y capacidad interpretativa, lo que valida el enfoque de categorización basado en la mediana y desviación absoluta media (mad) como una estrategia efectiva para este conjunto de datos.
 
 ```{r Seleccion y comparacion del mejor modelo con diferente profundidad}
 # Evaluar diferentes profundidades del árbol, lo haremos hasta 10 de 2 en 2
@@ -196,6 +224,7 @@ print(resultados)
 mejor_profundidad <- resultados$Profundidad[which.max(resultados$R2)]
 cat("Mejor profundidad:", mejor_profundidad, "\n")
 ```
+
 ## Explicacion de la seleccion
 
 ```{r Random Forest}
