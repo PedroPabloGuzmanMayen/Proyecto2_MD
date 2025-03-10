@@ -4,6 +4,11 @@ author: "Gustavo Cruz; Pedro Guzman"
 date: "2025-03-08"
 output: html_document
 ---
+
+#### Repositorio
+Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+[Revisar la branch correspondiente a los Arboles de Decision]
+
 ```{r Chunk para instalar paquetes}
 library(ggplot2)
 library(rpart)
@@ -18,9 +23,7 @@ library(dplyr)
 knitr::opts_chunk$set(warning = FALSE)
 ```
 
-Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
-
-# Arbol de regresión
+## Arbol de regresión
 
 ```{r}
 training_data <- read.csv("train.csv")
@@ -39,10 +42,11 @@ tree = rpart(SalePrice ~ ., data = train[, -1])
 summary(tree)
 rpart.plot(tree)
 ```
+
 El resumen del árbol muestra que las vaariables de importancia son la calidad de los acabados de la casa, el vecindario en el que se ubica y el área habitable sobre el nivel del suelo. El árbol de regresión primero evalúa la calidad de los detalles, si esta es mayor que 8 evalúa de nuevo la cantidad y luego evalúa la cantidad de área habitable para asignarle un precio. Si la calidad de los acabados es menor que 8, evalúa en que vecindario se ubica la vivienda, finalmente evalua el área habitable, de nuevo el vecindario. 
 
 
-#Predicciones del modelo creado
+## Predicciones del modelo creado
 
 ```{r prediccion modelo1}
 predModelo1 <- predict(tree, newdata = test)
@@ -59,12 +63,13 @@ mseModelo1train
 El error medio cuadrado es `r mseModelo1test` en el conjunto de prueba, mientras que el error de entrenamiento es   `r mseModelo1train`.
 Sepuede notarque el error el mayor en los datos de prueba que en los de entrenamiento, esto indica un sobreajuste. 
 
-#Modelos con varios niveles
+## Modelos con varios niveles
 
 ```{r Tuneo de la profundidad}
 # Crear árboles con diferentes niveles de profundidad
 arbol_2 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 2))
 arbol_3 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 3))
+arbol_4 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 4))
 arbol_8 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 8))
 arbol_16 <- rpart(SalePrice ~ ., data = train, control = rpart.control(maxdepth = 16))
 
@@ -75,21 +80,30 @@ evaluar_arbol <- function(modelo, nombre) {
   RMSE <- sqrt(mean((train$SalePrice - pred)^2))
   cat(nombre, "- R2:", R2, " RMSE:", RMSE, "\n")
 }
-
 # Evaluar cada árbol
 evaluar_arbol(arbol_2, "Árbol 2 Niveles")
 evaluar_arbol(arbol_3, "Árbol 3 Niveles")
+evaluar_arbol(arbol_4, "Árbol 4 Niveles")
 evaluar_arbol(arbol_8, "Árbol 8 Niveles")
 evaluar_arbol(arbol_16, "Árbol 16 Niveles")
+
 ```
-Se observa que a partir de los 8 niveles, el MSE y el R2 no cambian, por lo que usar 8 niveles de profunidad es adecuado. 
 
-# Comparación
+### Análisis de la profundidad óptima
 
-Se obtuvieron mejores resultados en este modelo pues el error medio cuadrado es menor al de la regresión lineal 
+El ajuste de la profundidad del árbol es un factor clave para equilibrar el sesgo y la varianza del modelo. En este caso, al evaluar diferentes niveles de profundidad, del 1 al 8, observamos una mejora progresiva en las métricas de desempeño hasta alcanzar los 4 niveles.
 
+A partir del nivel 4, el R² se estabiliza en 0.8092 y el RMSE en 37,033.09, lo que indica que agregar más niveles no proporciona una ganancia adicional en precisión. Por lo que con base a los resultados, determinamos que el modelo ha capturado la complejidad del problema sin la necesidad de utilizar más niveles.
 
-# Creación de una nueva variable
+## Comparación de Modelos [Regresion lineal vs Arboles de Decision con ajuste de profundidad]
+
+En comparación con el modelo de regresión lineal, el modelo de árboles de decisión con ajuste de profundidad muestra un mejor desempeño, ya que logra reducir el error medio cuadrado (MSE) y mejorar la capacidad predictiva. Mientras que la regresión lineal presenta un MSE de 1.7289 × 10⁹ en los datos de prueba y un MSE de 1.3714 × 10⁹ en el entrenamiento, el modelo de árboles alcanza un MSE considerablemente menor después de optimizar la profundidad.
+
+Además, el modelo de regresión lineal muestra signos de sobreajuste, ya que su error en el entrenamiento es notablemente menor que en la prueba. En cambio, el ajuste de profundidad en los árboles de decisión ha permitido encontrar un punto de equilibrio entre sesgo y varianza, logrando un modelo más generalizable sin perder precisión.
+
+En conclusión, el modelo de árboles de decisión demuestra ser una mejor alternativa en términos de precisión y estabilidad, evidenciando que una correcta selección de hiperparámetros puede mejorar significativamente el rendimiento predictivo.
+
+## Creación de una nueva variable
 
 ```{r Creacion Variable Respuesta}
 
@@ -111,8 +125,17 @@ training_data$Category <- as.factor(training_data$Category)
 # Mostrar en tabla la data categoria
 table(training_data$Category)
 
+<<<<<<< HEAD
+=======
+#training_data
+>>>>>>> e75ec365cf84cbe61206eb508b544f5d20f11cf0
 ```
-Se usaron estos límites pues en el análisis exploratorio de la hoja anterior se determinó que la distribución de sales price no era normal. Por lo que la mejor opción era usar la mediana y la desviación absoluta ya que estos valores dependen de la posición relativa de los datos y no de su valor absoluto. 
+
+### Explicacion de la nueva variable
+
+Para clasificar las propiedades en categorías basadas en su precio de venta (SalePrice), se ha decidido utilizar la mediana y la desviación absoluta de la mediana (mad). Esto se debe a que, en el análisis exploratorio previo, se determinó que la distribución de los precios de venta no sigue una distribución normal, por lo que el uso de la media y la desviación estándar podría no ser la mejor opción. La mediana es más robusta frente a valores atípicos, mientras que mad mide la dispersión de los datos sin verse afectado por valores extremos. 
+
+La variable Category se ha creado asignando las propiedades en tres grupos: "Baratas", "Medianas" y "Caras". Aquellas con un precio inferior al umbral de mediana - mad se etiquetan como "Baratas", mientras que aquellas con un precio superior a mediana + mad se consideran "Caras". Las propiedades cuyo precio se encuentra entre estos dos valores se categorizan como "Medianas". Finalmente, la variable se convierte en un factor para facilitar su uso en modelos de clasificación. Esta estrategia de categorización permite una segmentación más representativa del mercado inmobiliario y es útil para analizar patrones en función de características de las viviendas.
 
 ## Modelo con las nuevas variables. 
 
@@ -128,13 +151,18 @@ modelo_arbol <- rpart(Category ~ .,  method = "class", data = data)
 rpart.plot(modelo_arbol, cex = 0.25, main = "Árbol de Clasificación para SalePrice")
 
 ```
-## Interpretacion del Arbol
 
+<<<<<<< HEAD
 El árbol clasifica una casa en base a su precio (Alto, bajo o mediano). Para determinar eso evalua factores como la calidad de los acabados, el área habitable. La primera divisón se hace evaluando la calidad de los acabados de la casa en una escala del 1 al 10, si la calidad es mayor a 8, entonces se determinará la cantidad de área habitable y luego el vecindario en el que se ubica la vivienda,  dependiendo  de el resultado de estas evaluaciones la casa será calificada como cara o mediana. Si la calidad de los acabos es mayor a 8 se harán más evaluaciones en diferentes variables como el área habitable, el vecindario, etc para clasificar el precio de la casa. 
 
 ##Modelo de 
 
 ## Modelo de validación cruzada 
+=======
+## Interpretacion del gráfico
+
+Tras definir la variable Category, se ha construido un modelo de clasificación basado en árboles de decisión (rpart). Para ello, se ha tomado el conjunto de datos original excluyendo la variable SalePrice, ya que ahora estamos interesados en predecir la categoría en la que se encuentra cada propiedad en función de sus características estructurales y de ubicación. El modelo ha sido configurado con una profundidad máxima de 8 para evitar sobreajuste y mejorar la interpretabilidad de los resultados. El resumen del modelo indica que las características más relevantes para la clasificación son OverallQual (calidad general del inmueble), Neighborhood (vecindario), TotalBsmtSF (superficie total del sótano), GrLivArea (área habitable sobre el suelo) y GarageCars (capacidad del garaje). Se observa que la variable con mayor importancia es OverallQual, lo que sugiere que la calidad constructiva tiene un impacto significativo en la categorización del precio de las propiedades. Además, la estructura del árbol refleja que el modelo es capaz de segmentar los datos en diferentes nodos en función de estas variables clave. Este análisis confirma que la categorización basada en la mediana y mad permite capturar patrones significativos dentro del conjunto de datos.
+>>>>>>> e75ec365cf84cbe61206eb508b544f5d20f11cf0
 
 ```{r Evaluacion del desempeño del arbol}
 # Configurar la validación cruzada (en 10 folds)
@@ -154,30 +182,33 @@ print(modelo_cv)
 rpart.plot(modelo_cv$finalModel, type = 5, extra = 104, fallen.leaves = TRUE, 
            cex = 0.8, box.palette = "RdYlGn", main = "Árbol con Validación Cruzada")
 ```
+
+## Interpretacion del Arbol
+
+Los datos muestran los resultados de un modelo de clasificación CART (Classification and Regression Trees) que fue entrenado para clasificar casas en tres categorías: "Baratas", "Medianas" y "Caras", basándose en cuatro predictores: GrLivArea (área habitable), OverallQual (calidad general), GarageCars (capacidad del garaje) y YearBuilt (año de construcción).
+Estructura del dataset
+
+Muestras: 1460 propiedades en total
+Predictores: 4 variables utilizadas para la predicción
+Clases: 3 categorías de precios (Baratas, Medianas, Caras)
+
+**Validación cruzada**
+El modelo fue evaluado mediante validación cruzada de 10 partes (10-fold), lo que significa que los datos se dividieron en 10 grupos, entrenando con 9 grupos y validando con 1, repitiendo este proceso 10 veces.
+
+Donde se obtuvieron los siguientes resultados:
+
+**Mejor precisión** (Accuracy): 0.8377 (83.77%) obtenida con cp = 0.003054990. Esto significa que el modelo clasificó correctamente aproximadamente el 83.77% de las casas en su categoría de precio correcta.
+
+
+**Mejor Kappa:** 0.6427631 con el mismo valor de cp. El estadístico Kappa mide la concordancia entre la clasificación predicha y la real, ajustada por el azar. Un valor de 0.64 indica una concordancia "sustancial".
+
+A medida que el cp aumenta (árboles más simples), tanto la precisión como el Kappa tienden a disminuir.
+El peor rendimiento se observa con cp = 0.352342159, donde la precisión cae a 71.29% y Kappa a 0.2012.
+
 ## Explicacion del desempeño del arbol (Validacion Cruzada y Tuneo del Arbol)
 
-```{r Seleccion y comparacion del mejor modelo con diferente profundidad}
-# Evaluar diferentes profundidades del árbol, lo haremos hasta 10 de 2 en 2
-profundidades <- c(2, 4, 6, 8, 10)
-resultados <- data.frame(Profundidad = profundidades, R2 = numeric(length(profundidades)), RMSE = numeric(length(profundidades)))
+La validación cruzada muestra que el modelo de clasificación alcanza su mejor rendimiento con un parámetro de complejidad (cp) de 0.00305499, logrando una precisión de 83.77% y un Kappa de 0.6427. Este resultado confirma que un árbol relativamente complejo es necesario para clasificar adecuadamente las propiedades en las categorías "Baratas", "Medianas" y "Caras". Por otro lado, el tuneo del árbol mediante el ajuste de la profundidad máxima a 4 niveles permitió identificar que las variables más determinantes son OverallQual, Neighborhood, TotalBsmtSF, GrLivArea y GarageCars, siendo OverallQual la de mayor impacto en la predicción. Mientras la validación cruzada optimiza el parámetro de complejidad para mejorar la generalización del modelo, el tuneo del árbol revela la estructura jerárquica de decisiones y la importancia relativa de cada característica. Esta combinación de enfoques demuestra que el modelo captura eficientemente los patrones que determinan la categoría de precio, manteniendo un equilibrio entre precisión y capacidad interpretativa, lo que valida el enfoque de categorización basado en la mediana y desviación absoluta media (mad) como una estrategia efectiva para este conjunto de datos.
 
-for (i in seq_along(profundidades)) {
-  modelo_temp <- rpart(SalePrice ~ ., data = training_data, control = rpart.control(maxdepth = profundidades[i]))
-  predicciones <- predict(modelo_temp, training_data)
-  
-  SSE <- sum((training_data$SalePrice - predicciones)^2)
-  SST <- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
-  resultados$R2[i] <- 1 - (SSE / SST)
-  resultados$RMSE[i] <- sqrt(mean((training_data$SalePrice - predicciones)^2))
-}
-
-print(resultados)
-
-# Vamos a elegir el mejor modelo basado en R2 más alto y menor RMSE
-mejor_profundidad <- resultados$Profundidad[which.max(resultados$R2)]
-cat("Mejor profundidad:", mejor_profundidad, "\n")
-```
-## Explicacion de la seleccion
 
 ```{r Random Forest}
 # Cargar librerías necesarias
@@ -215,9 +246,13 @@ cat("Random Forest - R2:", R2_rf, " RMSE:", RMSE_rf, "\n")
 # Importancia de las variables
 varImpPlot(modelo_rf, main = "Importancia de las Variables en Random Forest")
 ```
+
 ## Comparacion del Random Forest con el arbol de decision
 
-```{r Evaluacion y comparacin de modelos}
+El modelo Random Forest demuestra un rendimiento superior al árbol de decisión individual, alcanzando un R² de 0.9722 y un RMSE de 13,249.25. Esta  mejora refleja la capacidad del Random Forest para capturar patrones más complejos en los datos. El análisis de importancia de variables revela que GrLivArea (área habitable) y OverallQual (calidad general) son los predictores más influyentes tanto en términos de incremento del error cuadrático medio como en la pureza de los nodos. Otras variables destacadas incluyen Neighborhood, Category, YearBuilt y TotalBsmtSF. La gráfica muestra una distribución clara de importancia, con un grupo de variables dominantes seguido de predictores con contribución moderada y un conjunto extenso de variables con influencia marginal. Esta jerarquía proporciona insights valiosos sobre los factores más determinantes en la predicción del precio de venta de las propiedades.
+
+
+```{r Evaluacion y comparacion de modelos}
 
 ```
 
