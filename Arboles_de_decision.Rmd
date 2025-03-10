@@ -121,21 +121,20 @@ Se usaron estos límites pues en el análisis exploratorio de la hoja anterior s
 
 data <- training_data %>% select(-SalePrice)
 
-modelo_arbol <- rpart(Category ~ ., data = data, control = rpart.control(maxdepth = 8))
+modelo_arbol <- rpart(Category ~ .,  method = "class", data = data)
 
-# Resumen del modelo
-summary(modelo_arbol)
 
 # Graficar árbol
-rpart.plot(modelo_arbol,  main = "Árbol de Regresión para SalePrice")
+rpart.plot(modelo_arbol, cex = 0.25, main = "Árbol de Clasificación para SalePrice")
 
 ```
 ## Interpretacion del Arbol
 
-El árbol clasifica una casa en base a su precio (Alto, bajo o mediano). Para determinar eso evalua factores como la calidad de los acabados, el área habitable, etc. 
+El árbol clasifica una casa en base a su precio (Alto, bajo o mediano). Para determinar eso evalua factores como la calidad de los acabados, el área habitable. La primera divisón se hace evaluando la calidad de los acabados de la casa en una escala del 1 al 10, si la calidad es mayor a 8, entonces se determinará la cantidad de área habitable y luego el vecindario en el que se ubica la vivienda,  dependiendo  de el resultado de estas evaluaciones la casa será calificada como cara o mediana. Si la calidad de los acabos es mayor a 8 se harán más evaluaciones en diferentes variables como el área habitable, el vecindario, etc para clasificar el precio de la casa. 
 
+##Modelo de 
 
-## Explicacion de los resultados
+## Modelo de validación cruzada 
 
 ```{r Evaluacion del desempeño del arbol}
 # Configurar la validación cruzada (en 10 folds)
