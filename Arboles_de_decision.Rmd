@@ -111,8 +111,6 @@ training_data$Category <- as.factor(training_data$Category)
 # Mostrar en tabla la data categoria
 table(training_data$Category)
 
-training_data
-
 ```
 Se usaron estos límites pues en el análisis exploratorio de la hoja anterior se determinó que la distribución de sales price no era normal. Por lo que la mejor opción era usar la mediana y la desviación absoluta ya que estos valores dependen de la posición relativa de los datos y no de su valor absoluto. 
 
