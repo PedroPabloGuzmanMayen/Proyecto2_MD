@@ -1,0 +1,97 @@
+---
+title: "Naive Bayes"
+author: "Gustavo Cruz; Pedro Guzman"
+date: "2025-03-08"
+output: html_document
+---
+
+#### Repositorio
+Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+[Revisar la branch correspondiente a los Arboles de Decision]
+
+```{r Chunk para instalar paquetes}
+library(ggplot2)
+library(e1071)  
+library(caret)  
+library(dplyr)  
+library(Metrics)
+```
+
+```{r Modelo de Regresion con Bayes}
+data <- read.csv("train.csv")
+
+# Seleccionar variables de interés
+data <- data %>%
+  select(SalePrice, GrLivArea, OverallQual, GarageCars, YearBuilt)
+
+# Dividir en entrenamiento (80%) y prueba (20%)
+set.seed(42)  # Para reproducibilidad
+trainIndex <- createDataPartition(data$SalePrice, p = 0.8, list = FALSE)
+training_data <- data[trainIndex, ]
+testing_data <- data[-trainIndex, ]
+
+# Crear variable categórica basada en cuartiles
+training_data$PriceCategory <- cut(training_data$SalePrice,
+                                   breaks = quantile(training_data$SalePrice, probs = seq(0, 1, 0.25), na.rm = TRUE),
+                                   labels = c("Bajo", "Medio-Bajo", "Medio-Alto", "Alto"),
+                                   include.lowest = TRUE)
+
+testing_data$PriceCategory <- cut(testing_data$SalePrice,
+                                  breaks = quantile(training_data$SalePrice, probs = seq(0, 1, 0.25), na.rm = TRUE),
+                                  labels = c("Bajo", "Medio-Bajo", "Medio-Alto", "Alto"),
+                                  include.lowest = TRUE)
+
+# Convertir a factor
+training_data$PriceCategory <- as.factor(training_data$PriceCategory)
+testing_data$PriceCategory <- as.factor(testing_data$PriceCategory)
+
+training_data$SalePrice <- as.numeric(training_data$SalePrice)
+testing_data$SalePrice <- as.numeric(testing_data$SalePrice)
+
+preproc <- preProcess(training_data[, c("GrLivArea", "OverallQual", "GarageCars", "YearBuilt")], 
+                     method = c("center", "scale"))
+training_data_scaled <- predict(preproc, training_data)
+testing_data_scaled <- predict(preproc, testing_data)
+
+breaks <- seq(min(training_data$SalePrice), max(training_data$SalePrice), length.out = 10)
+training_data$SalePriceBin <- cut(training_data$SalePrice, breaks = breaks)
+
+nb_model <- naiveBayes(SalePriceBin ~ GrLivArea + OverallQual + GarageCars + YearBuilt, 
+                      data = training_data)
+
+nb_pred_prob <- predict(nb_model, testing_data, type = "raw")
+
+bin_centers <- sapply(levels(training_data$SalePriceBin), function(bin) {
+  interval <- as.numeric(strsplit(gsub("\\(|\\]", "", bin), ",")[[1]])
+  mean(interval)
+})
+
+nb_predictions <- apply(nb_pred_prob, 1, function(probs) {
+  sum(probs * bin_centers)
+})
+
+```
+
+```{r Rendimiento de Bayes}
+rmse_nb <- rmse(testing_data$SalePrice, nb_predictions)
+
+# Error absoluto medio (MAE)
+mae_nb <- mae(testing_data$SalePrice, nb_predictions)
+
+# R-cuadrado
+sst <- sum((testing_data$SalePrice - mean(testing_data$SalePrice))^2)
+ssr <- sum((testing_data$SalePrice - nb_predictions)^2)
+r2_nb <- 1 - (ssr / sst)
+
+cat("Métricas del modelo de regresión Naive Bayes:\n")
+cat("RMSE:", rmse_nb, "\n")
+cat("MAE:", mae_nb, "\n")
+cat("R²:", r2_nb, "\n")
+
+plot(testing_data$SalePrice, nb_predictions, 
+     main = "Valores reales vs. predichos (Naive Bayes)",
+     xlab = "Precio real", ylab = "Precio predicho")
+abline(0, 1, col = "red")
+```
+
+
