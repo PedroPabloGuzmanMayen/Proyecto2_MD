@@ -15,6 +15,7 @@ library(caret)
 library(dplyr)
 library(ggplot2)
 library(Metrics)
+library(missForest)
 
 training_data <- read.csv("train.csv")
 set.seed(245)
@@ -127,4 +128,70 @@ Los resultados del modelo muestran un comportamiento inusual en el conjunto de e
 
 Por otro lado, en el conjunto de prueba, el MSE es 44,115,050,934 y el RMSE es 210,035.8, valores igualmente altos, aunque similares a los de entrenamiento. El R² en prueba es 0.8130, lo que indica que el modelo logra explicar el 81.3% de la varianza en los datos de prueba, lo cual es un buen desempeño  de ajuste. Sin embargo, la gran diferencia entre los valores de R² en entrenamiento y prueba sugiere que el modelo no está aprendiendo bien los patrones en los datos de entrenamiento, lo que puede deberse a problemas en la conversión de variables o en la naturaleza del modelo Naive Bayes para regresión.
 
+```{r - Validacion Cruzada}
+set.seed(245)
+
+training_imputed <- training_data
+test_imputed <- test_data
+
+num_cols <- sapply(training_imputed, is.numeric)
+for(col in colnames(training_imputed)[num_cols]) {
+  training_imputed[[col]][is.na(training_imputed[[col]])] <- mean(training_imputed[[col]], na.rm = TRUE)
+  test_imputed[[col]][is.na(test_imputed[[col]])] <- mean(training_imputed[[col]], na.rm = TRUE)
+}
+
+cat_cols <- sapply(training_imputed, is.factor)
+for(col in colnames(training_imputed)[cat_cols]) {
+  mode_val <- names(sort(table(training_imputed[[col]]), decreasing = TRUE)[1])
+  training_imputed[[col]][is.na(training_imputed[[col]])] <- mode_val
+  test_imputed[[col]][is.na(test_imputed[[col]])] <- mode_val
+}
+
+set.seed(245)
+k <- 5  
+folds <- createFolds(training_imputed$SalePrice, k = k, list = TRUE, returnTrain = FALSE)
+
+cv_predictions <- numeric(nrow(training_imputed))
+
+for(i in 1:k) {
+  train_fold <- training_imputed[-folds[[i]], ]
+  valid_fold <- training_imputed[folds[[i]], ]
+  
+  train_fold_data <- train_fold %>% select(-Category)
+  
+  modelo_fold <- naiveBayes(SalePrice ~ ., data = train_fold_data)
+  
+  valid_fold_data <- valid_fold %>% select(-SalePrice, -Category)
+  pred_fold <- predict(modelo_fold, newdata = valid_fold_data)
+  
+  cv_predictions[folds[[i]]] <- as.numeric(pred_fold)
+}
+
+cv_mse <- mean((training_imputed$SalePrice - cv_predictions)^2, na.rm = TRUE)
+cv_rmse <- sqrt(cv_mse)
+cv_sst <- sum((training_imputed$SalePrice - mean(training_imputed$SalePrice))^2)
+cv_ssr <- sum((training_imputed$SalePrice - cv_predictions)^2)
+cv_r2 <- 1 - (cv_ssr / cv_sst)
+
+modelo_final <- naiveBayes(SalePrice ~ ., data = training_imputed %>% select(-Category))
+
+test_pred <- predict(modelo_final, newdata = test_imputed %>% select(-SalePrice, -Category))
+test_pred <- as.numeric(test_pred)
+
+test_mse <- mean((test_imputed$SalePrice - test_pred)^2, na.rm = TRUE)
+test_rmse <- sqrt(test_mse)
+test_sst <- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
+test_ssr <- sum((test_imputed$SalePrice - test_pred)^2)
+test_r2 <- 1 - (test_ssr / test_sst)
+
+cat("Modelo original:\n")
+cat("RMSE:", rmse, "\n")
+cat("R²:", r2, "\n\n")
+
+cat("Modelo con validación cruzada:\n")
+cat("RMSE en validación cruzada:", cv_rmse, "\n")
+cat("R² en validación cruzada:", cv_r2, "\n")
+cat("RMSE en prueba:", test_rmse, "\n")
+cat("R² en prueba:", test_r2, "\n\n")
+```
 

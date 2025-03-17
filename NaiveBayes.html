@@ -381,7 +381,9 @@ library(Metrics)</code></pre>
 <pre><code>## The following objects are masked from &#39;package:caret&#39;:
 ## 
 ##     precision, recall</code></pre>
-<pre class="r"><code>training_data &lt;- read.csv(&quot;train.csv&quot;)
+<pre class="r"><code>library(missForest)
+
+training_data &lt;- read.csv(&quot;train.csv&quot;)
 set.seed(245)
 porciento &lt;- 0.7
 corte &lt;- sample(nrow(training_data),nrow(training_data) * porciento)
@@ -550,6 +552,78 @@ los valores de R² en entrenamiento y prueba sugiere que el modelo no
 está aprendiendo bien los patrones en los datos de entrenamiento, lo que
 puede deberse a problemas en la conversión de variables o en la
 naturaleza del modelo Naive Bayes para regresión.</p>
+<pre class="r"><code>set.seed(245)
+
+training_imputed &lt;- training_data
+test_imputed &lt;- test_data
+
+num_cols &lt;- sapply(training_imputed, is.numeric)
+for(col in colnames(training_imputed)[num_cols]) {
+  training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mean(training_imputed[[col]], na.rm = TRUE)
+  test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mean(training_imputed[[col]], na.rm = TRUE)
+}
+
+cat_cols &lt;- sapply(training_imputed, is.factor)
+for(col in colnames(training_imputed)[cat_cols]) {
+  mode_val &lt;- names(sort(table(training_imputed[[col]]), decreasing = TRUE)[1])
+  training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mode_val
+  test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mode_val
+}</code></pre>
+<pre><code>## Warning in `[&lt;-.factor`(`*tmp*`, is.na(test_imputed[[col]]), value = &quot;Ex&quot;):
+## invalid factor level, NA generated</code></pre>
+<pre class="r"><code>set.seed(245)
+k &lt;- 5  
+folds &lt;- createFolds(training_imputed$SalePrice, k = k, list = TRUE, returnTrain = FALSE)
+
+cv_predictions &lt;- numeric(nrow(training_imputed))
+
+for(i in 1:k) {
+  train_fold &lt;- training_imputed[-folds[[i]], ]
+  valid_fold &lt;- training_imputed[folds[[i]], ]
+  
+  train_fold_data &lt;- train_fold %&gt;% select(-Category)
+  
+  modelo_fold &lt;- naiveBayes(SalePrice ~ ., data = train_fold_data)
+  
+  valid_fold_data &lt;- valid_fold %&gt;% select(-SalePrice, -Category)
+  pred_fold &lt;- predict(modelo_fold, newdata = valid_fold_data)
+  
+  cv_predictions[folds[[i]]] &lt;- as.numeric(pred_fold)
+}
+
+cv_mse &lt;- mean((training_imputed$SalePrice - cv_predictions)^2, na.rm = TRUE)
+cv_rmse &lt;- sqrt(cv_mse)
+cv_sst &lt;- sum((training_imputed$SalePrice - mean(training_imputed$SalePrice))^2)
+cv_ssr &lt;- sum((training_imputed$SalePrice - cv_predictions)^2)
+cv_r2 &lt;- 1 - (cv_ssr / cv_sst)
+
+modelo_final &lt;- naiveBayes(SalePrice ~ ., data = training_imputed %&gt;% select(-Category))
+
+test_pred &lt;- predict(modelo_final, newdata = test_imputed %&gt;% select(-SalePrice, -Category))
+test_pred &lt;- as.numeric(test_pred)
+
+test_mse &lt;- mean((test_imputed$SalePrice - test_pred)^2, na.rm = TRUE)
+test_rmse &lt;- sqrt(test_mse)
+test_sst &lt;- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
+test_ssr &lt;- sum((test_imputed$SalePrice - test_pred)^2)
+test_r2 &lt;- 1 - (test_ssr / test_sst)
+
+cat(&quot;Modelo original:\n&quot;)</code></pre>
+<pre><code>## Modelo original:</code></pre>
+<pre class="r"><code>cat(&quot;RMSE:&quot;, rmse, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE: 210035.8</code></pre>
+<pre class="r"><code>cat(&quot;R²:&quot;, r2, &quot;\n\n&quot;)</code></pre>
+<pre><code>## R²: 0.8130435</code></pre>
+<pre class="r"><code>cat(&quot;Modelo con validación cruzada:\n&quot;)</code></pre>
+<pre><code>## Modelo con validación cruzada:</code></pre>
+<pre class="r"><code>cat(&quot;RMSE en validación cruzada:&quot;, cv_rmse, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE en validación cruzada: 204219.4</code></pre>
+<pre class="r"><code>cat(&quot;R² en validación cruzada:&quot;, cv_r2, &quot;\n&quot;)</code></pre>
+<pre><code>## R² en validación cruzada: -4.802259</code></pre>
+<pre class="r"><code>cat(&quot;RMSE en prueba:&quot;, test_rmse, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE en prueba: 210035.8</code></pre>
+<pre class="r"><code>cat(&quot;R² en prueba:&quot;, test_r2, &quot;\n\n&quot;)</code></pre>
+<pre><code>## R² en prueba: -4.348834</code></pre>
 </div>
 
 
