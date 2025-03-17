@@ -504,6 +504,53 @@ ocasiones pero puede mejorarse, además de eso tiene problemas en
 identificar debidamente casas baratas.</p>
 </div>
 </div>
+<div id="evaluacion-de-sobreajuste" class="section level1">
+<h1>Evaluacion de sobreajuste</h1>
+<pre class="r"><code>predicciones_train &lt;- predict(modelo, newdata = data_to_train[, -1])</code></pre>
+<pre><code>## Warning in predict.naiveBayes(modelo, newdata = data_to_train[, -1]): Type
+## mismatch between training and new data for variable &#39;MSSubClass&#39;. Did you use
+## factors with numeric labels for training, and numeric values for new data?</code></pre>
+<pre class="r"><code>predicciones_train &lt;- as.numeric(predicciones_train)
+
+mse_train &lt;- mean((training_data$SalePrice - predicciones_train)^2, na.rm = TRUE)
+rmse_train &lt;- sqrt(mse_train)
+sst_train &lt;- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
+ssr_train &lt;- sum((training_data$SalePrice - predicciones_train)^2)
+r2_train &lt;- 1 - (ssr_train / sst_train)
+
+cat(&quot;Métricas en entrenamiento:\n&quot;)</code></pre>
+<pre><code>## Métricas en entrenamiento:</code></pre>
+<pre class="r"><code>cat(&quot;MSE:&quot;, mse_train, &quot;\n&quot;)</code></pre>
+<pre><code>## MSE: 41688592433</code></pre>
+<pre class="r"><code>cat(&quot;RMSE:&quot;, rmse_train, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE: 204177.8</code></pre>
+<pre class="r"><code>cat(&quot;R^2:&quot;, r2_train, &quot;\n\n&quot;)</code></pre>
+<pre><code>## R^2: -4.799896</code></pre>
+<pre class="r"><code>cat(&quot;Métricas en prueba:\n&quot;)</code></pre>
+<pre><code>## Métricas en prueba:</code></pre>
+<pre class="r"><code>cat(&quot;MSE:&quot;, mse_regresion, &quot;\n&quot;)</code></pre>
+<pre><code>## MSE: 44115050934</code></pre>
+<pre class="r"><code>cat(&quot;RMSE:&quot;, rmse, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE: 210035.8</code></pre>
+<pre class="r"><code>cat(&quot;R^2:&quot;, r2, &quot;\n&quot;)</code></pre>
+<pre><code>## R^2: 0.8130435</code></pre>
+<p>Los resultados del modelo muestran un comportamiento inusual en el
+conjunto de entrenamiento. El MSE en entrenamiento es 41,688,592,433, y
+el RMSE es 204,177.8, lo que indica que las predicciones tienen un error
+alto en promedio. Sin embargo, el valor de R² en entrenamiento es
+-4.7999, lo que nos dice que el modelo tiene un ajuste muy deficiente en
+los datos de entrenamiento y que la varianza explicada es negativa, por
+lo que puede ser un indicio que existe sobreajuste.</p>
+<p>Por otro lado, en el conjunto de prueba, el MSE es 44,115,050,934 y
+el RMSE es 210,035.8, valores igualmente altos, aunque similares a los
+de entrenamiento. El R² en prueba es 0.8130, lo que indica que el modelo
+logra explicar el 81.3% de la varianza en los datos de prueba, lo cual
+es un buen desempeño de ajuste. Sin embargo, la gran diferencia entre
+los valores de R² en entrenamiento y prueba sugiere que el modelo no
+está aprendiendo bien los patrones en los datos de entrenamiento, lo que
+puede deberse a problemas en la conversión de variables o en la
+naturaleza del modelo Naive Bayes para regresión.</p>
+</div>
 
 
 
