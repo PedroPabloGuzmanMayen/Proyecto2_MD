@@ -382,6 +382,18 @@ library(Metrics)</code></pre>
 ## 
 ##     precision, recall</code></pre>
 <pre class="r"><code>library(missForest)
+library(tidyverse)</code></pre>
+<pre><code>## ── Attaching core tidyverse packages ──────────────────────── tidyverse 2.0.0 ──
+## ✔ forcats   1.0.0     ✔ stringr   1.5.1
+## ✔ lubridate 1.9.4     ✔ tibble    3.2.1
+## ✔ purrr     1.0.4     ✔ tidyr     1.3.1
+## ✔ readr     2.1.5</code></pre>
+<pre><code>## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
+## ✖ dplyr::filter() masks stats::filter()
+## ✖ dplyr::lag()    masks stats::lag()
+## ✖ purrr::lift()   masks caret::lift()
+## ℹ Use the conflicted package (&lt;http://conflicted.r-lib.org/&gt;) to force all conflicts to become errors</code></pre>
+<pre class="r"><code>library(knitr)
 
 training_data &lt;- read.csv(&quot;train.csv&quot;)
 set.seed(245)
@@ -624,6 +636,147 @@ cat(&quot;Modelo original:\n&quot;)</code></pre>
 <pre><code>## RMSE en prueba: 210035.8</code></pre>
 <pre class="r"><code>cat(&quot;R² en prueba:&quot;, test_r2, &quot;\n\n&quot;)</code></pre>
 <pre><code>## R² en prueba: -4.348834</code></pre>
+<p>Los resultados obtenidos muestran que el modelo con validación
+cruzada presenta un RMSE en validación cruzada de 204,219.4, esto indica
+un error promedio en la predicción similar al modelo original. Sin
+embargo, el R² en validación cruzada es -4.8023, lo que indica que el
+modelo no logra explicar la variabilidad en los datos y es menos
+efectivo que simplemente predecir la media.</p>
+<p>En la evaluación sobre el conjunto de prueba, el modelo con
+validación cruzada obtiene un RMSE de 210,035.8, exactamente igual al
+modelo original, pero un R² de -4.3488, lo que indica que su desempeño
+en términos de ajuste es significativamente peor que el modelo original
+(R² = 0.8130). Esto implica que, aunque la validación cruzada ayuda a
+reducir la varianza del modelo, el rendimiento general no mejora y, en
+este caso, es incluso más deficiente en la prueba. Por lo que, el modelo
+original basado en Naive Bayes sin validación cruzada es más adecuado
+para la predicción del precio de las casas, ya que presenta un mejor
+ajuste y explica más variabilidad en los datos.</p>
+<pre class="r"><code>set.seed(245)
+
+training_imputed &lt;- training_data
+test_imputed &lt;- test_data
+
+num_cols &lt;- sapply(training_imputed, is.numeric)
+for(col in colnames(training_imputed)[num_cols]) {
+  training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mean(training_imputed[[col]], na.rm = TRUE)
+  test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mean(training_imputed[[col]], na.rm = TRUE)
+}
+
+cat_cols &lt;- sapply(training_imputed, is.factor)
+for(col in colnames(training_imputed)[cat_cols]) {
+  if(sum(is.na(training_imputed[[col]])) &gt; 0) {
+    mode_val &lt;- names(sort(table(training_imputed[[col]]), decreasing = TRUE)[1])
+    training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mode_val
+    test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mode_val
+  }
+}</code></pre>
+<pre><code>## Warning in `[&lt;-.factor`(`*tmp*`, is.na(test_imputed[[col]]), value = &quot;Ex&quot;):
+## invalid factor level, NA generated</code></pre>
+<pre class="r"><code>set.seed(245)
+val_index &lt;- sample(nrow(training_imputed), nrow(training_imputed) * 0.2)
+train_hp &lt;- training_imputed[-val_index, ]
+val_hp &lt;- training_imputed[val_index, ]
+
+laplace_values &lt;- c(0, 1, 2, 5)
+
+results_reg &lt;- matrix(NA, nrow = length(laplace_values), ncol = 2)
+colnames(results_reg) &lt;- c(&quot;laplace&quot;, &quot;rmse&quot;)
+results_class &lt;- matrix(NA, nrow = length(laplace_values), ncol = 2)
+colnames(results_class) &lt;- c(&quot;laplace&quot;, &quot;accuracy&quot;)
+
+for(i in 1:length(laplace_values)) {
+  laplace &lt;- laplace_values[i]
+  
+  modelo_reg &lt;- naiveBayes(SalePrice ~ ., data = train_hp %&gt;% select(-Category), laplace = laplace)
+  
+  pred_reg &lt;- predict(modelo_reg, newdata = val_hp %&gt;% select(-SalePrice, -Category))
+  pred_reg &lt;- as.numeric(pred_reg)
+  
+  rmse_val &lt;- sqrt(mean((val_hp$SalePrice - pred_reg)^2, na.rm = TRUE))
+  
+  results_reg[i, ] &lt;- c(laplace, rmse_val)
+}
+
+best_laplace_reg &lt;- results_reg[which.min(results_reg[, &quot;rmse&quot;]), &quot;laplace&quot;]
+
+for(i in 1:length(laplace_values)) {
+  laplace &lt;- laplace_values[i]
+  modelo_class &lt;- naiveBayes(Category ~ ., data = train_hp %&gt;% select(-SalePrice), laplace = laplace)
+  pred_class &lt;- predict(modelo_class, newdata = val_hp %&gt;% select(-SalePrice))
+  accuracy &lt;- mean(pred_class == val_hp$Category, na.rm = TRUE)
+  results_class[i, ] &lt;- c(laplace, accuracy)
+}
+
+best_laplace_class &lt;- results_class[which.max(results_class[, &quot;accuracy&quot;]), &quot;laplace&quot;]
+
+best_modelo_reg &lt;- naiveBayes(SalePrice ~ ., data = training_imputed %&gt;% select(-Category), laplace = best_laplace_reg)
+best_modelo_class &lt;- naiveBayes(Category ~ ., data = training_imputed %&gt;% select(-SalePrice), laplace = best_laplace_class)
+
+pred_reg_test &lt;- predict(best_modelo_reg, newdata = test_imputed %&gt;% select(-SalePrice, -Category))
+pred_reg_test &lt;- as.numeric(pred_reg_test)
+best_mse_reg &lt;- mean((test_imputed$SalePrice - pred_reg_test)^2, na.rm = TRUE)
+best_rmse_reg &lt;- sqrt(best_mse_reg)
+best_sst_reg &lt;- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
+best_ssr_reg &lt;- sum((test_imputed$SalePrice - pred_reg_test)^2)
+best_r2_reg &lt;- 1 - (best_ssr_reg / best_sst_reg)
+
+pred_class_test &lt;- predict(best_modelo_class, newdata = test_imputed %&gt;% select(-SalePrice))
+best_conf &lt;- confusionMatrix(pred_class_test, test_imputed$Category)
+best_accuracy &lt;- best_conf$overall[&quot;Accuracy&quot;]
+best_kappa &lt;- best_conf$overall[&quot;Kappa&quot;]
+
+cat(&quot;Resultados de la optimización de hiperparámetros:\n\n&quot;)</code></pre>
+<pre><code>## Resultados de la optimización de hiperparámetros:</code></pre>
+<pre class="r"><code>cat(&quot;Para el modelo de regresión:\n&quot;)</code></pre>
+<pre><code>## Para el modelo de regresión:</code></pre>
+<pre class="r"><code>print(results_reg)</code></pre>
+<pre><code>##      laplace     rmse
+## [1,]       0 198561.3
+## [2,]       1 198566.4
+## [3,]       2 198565.7
+## [4,]       5 198565.7</code></pre>
+<pre class="r"><code>cat(&quot;\nMejor valor de laplace:&quot;, best_laplace_reg, &quot;\n\n&quot;)</code></pre>
+<pre><code>## 
+## Mejor valor de laplace: 0</code></pre>
+<pre class="r"><code>cat(&quot;Para el modelo de clasificación:\n&quot;)</code></pre>
+<pre><code>## Para el modelo de clasificación:</code></pre>
+<pre class="r"><code>print(results_class)</code></pre>
+<pre><code>##      laplace  accuracy
+## [1,]       0 0.6764706
+## [2,]       1 0.6813725
+## [3,]       2 0.6813725
+## [4,]       5 0.7107843</code></pre>
+<pre class="r"><code>cat(&quot;\nMejor valor de laplace:&quot;, best_laplace_class, &quot;\n\n&quot;)</code></pre>
+<pre><code>## 
+## Mejor valor de laplace: 5</code></pre>
+<div id="comparacion-con-otros-modelos" class="section level2">
+<h2>Comparacion con otros modelos</h2>
+<pre class="r"><code>cat(&quot;Modelo de regresión original:\n&quot;)</code></pre>
+<pre><code>## Modelo de regresión original:</code></pre>
+<pre class="r"><code>cat(&quot;RMSE:&quot;, rmse, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE: 210035.8</code></pre>
+<pre class="r"><code>cat(&quot;R²:&quot;, r2, &quot;\n\n&quot;)</code></pre>
+<pre><code>## R²: 0.8130435</code></pre>
+<pre class="r"><code>cat(&quot;Modelo de regresión optimizado:\n&quot;)</code></pre>
+<pre><code>## Modelo de regresión optimizado:</code></pre>
+<pre class="r"><code>cat(&quot;RMSE:&quot;, best_rmse_reg, &quot;\n&quot;)</code></pre>
+<pre><code>## RMSE: 210035.8</code></pre>
+<pre class="r"><code>cat(&quot;R²:&quot;, best_r2_reg, &quot;\n\n&quot;)</code></pre>
+<pre><code>## R²: -4.348834</code></pre>
+<pre class="r"><code>cat(&quot;Modelo de clasificación original:\n&quot;)</code></pre>
+<pre><code>## Modelo de clasificación original:</code></pre>
+<pre class="r"><code>cat(&quot;Accuracy:&quot;, conf$overall[&quot;Accuracy&quot;], &quot;\n&quot;)</code></pre>
+<pre><code>## Accuracy: 0.7530488</code></pre>
+<pre class="r"><code>cat(&quot;Kappa:&quot;, conf$overall[&quot;Kappa&quot;], &quot;\n\n&quot;)</code></pre>
+<pre><code>## Kappa: 0.5738415</code></pre>
+<pre class="r"><code>cat(&quot;Modelo de clasificación optimizado:\n&quot;)</code></pre>
+<pre><code>## Modelo de clasificación optimizado:</code></pre>
+<pre class="r"><code>cat(&quot;Accuracy:&quot;, best_accuracy, &quot;\n&quot;)</code></pre>
+<pre><code>## Accuracy: 0.777439</code></pre>
+<pre class="r"><code>cat(&quot;Kappa:&quot;, best_kappa, &quot;\n\n&quot;)</code></pre>
+<pre><code>## Kappa: 0.604519</code></pre>
+</div>
 </div>
 
 

@@ -16,6 +16,8 @@ library(dplyr)
 library(ggplot2)
 library(Metrics)
 library(missForest)
+library(tidyverse)
+library(knitr)
 
 training_data <- read.csv("train.csv")
 set.seed(245)
@@ -193,5 +195,114 @@ cat("RMSE en validación cruzada:", cv_rmse, "\n")
 cat("R² en validación cruzada:", cv_r2, "\n")
 cat("RMSE en prueba:", test_rmse, "\n")
 cat("R² en prueba:", test_r2, "\n\n")
+```
+
+Los resultados obtenidos muestran que el modelo con validación cruzada presenta un RMSE en validación cruzada de 204,219.4, esto indica un error promedio en la predicción similar al modelo original. Sin embargo, el R² en validación cruzada es -4.8023, lo que indica que el modelo no logra explicar la variabilidad en los datos y es menos efectivo que simplemente predecir la media. 
+
+En la evaluación sobre el conjunto de prueba, el modelo con validación cruzada obtiene un RMSE de 210,035.8, exactamente igual al modelo original, pero un R² de -4.3488, lo que indica que su desempeño en términos de ajuste es significativamente peor que el modelo original (R² = 0.8130). Esto implica que, aunque la validación cruzada ayuda a reducir la varianza del modelo, el rendimiento general no mejora y, en este caso, es incluso más deficiente en la prueba. Por lo que, el modelo original basado en Naive Bayes sin validación cruzada es más adecuado para la predicción del precio de las casas, ya que presenta un mejor ajuste y explica más variabilidad en los datos.
+
+```{r}
+set.seed(245)
+
+training_imputed <- training_data
+test_imputed <- test_data
+
+num_cols <- sapply(training_imputed, is.numeric)
+for(col in colnames(training_imputed)[num_cols]) {
+  training_imputed[[col]][is.na(training_imputed[[col]])] <- mean(training_imputed[[col]], na.rm = TRUE)
+  test_imputed[[col]][is.na(test_imputed[[col]])] <- mean(training_imputed[[col]], na.rm = TRUE)
+}
+
+cat_cols <- sapply(training_imputed, is.factor)
+for(col in colnames(training_imputed)[cat_cols]) {
+  if(sum(is.na(training_imputed[[col]])) > 0) {
+    mode_val <- names(sort(table(training_imputed[[col]]), decreasing = TRUE)[1])
+    training_imputed[[col]][is.na(training_imputed[[col]])] <- mode_val
+    test_imputed[[col]][is.na(test_imputed[[col]])] <- mode_val
+  }
+}
+
+set.seed(245)
+val_index <- sample(nrow(training_imputed), nrow(training_imputed) * 0.2)
+train_hp <- training_imputed[-val_index, ]
+val_hp <- training_imputed[val_index, ]
+
+laplace_values <- c(0, 1, 2, 5)
+
+results_reg <- matrix(NA, nrow = length(laplace_values), ncol = 2)
+colnames(results_reg) <- c("laplace", "rmse")
+results_class <- matrix(NA, nrow = length(laplace_values), ncol = 2)
+colnames(results_class) <- c("laplace", "accuracy")
+
+for(i in 1:length(laplace_values)) {
+  laplace <- laplace_values[i]
+  
+  modelo_reg <- naiveBayes(SalePrice ~ ., data = train_hp %>% select(-Category), laplace = laplace)
+  
+  pred_reg <- predict(modelo_reg, newdata = val_hp %>% select(-SalePrice, -Category))
+  pred_reg <- as.numeric(pred_reg)
+  
+  rmse_val <- sqrt(mean((val_hp$SalePrice - pred_reg)^2, na.rm = TRUE))
+  
+  results_reg[i, ] <- c(laplace, rmse_val)
+}
+
+best_laplace_reg <- results_reg[which.min(results_reg[, "rmse"]), "laplace"]
+
+for(i in 1:length(laplace_values)) {
+  laplace <- laplace_values[i]
+  modelo_class <- naiveBayes(Category ~ ., data = train_hp %>% select(-SalePrice), laplace = laplace)
+  pred_class <- predict(modelo_class, newdata = val_hp %>% select(-SalePrice))
+  accuracy <- mean(pred_class == val_hp$Category, na.rm = TRUE)
+  results_class[i, ] <- c(laplace, accuracy)
+}
+
+best_laplace_class <- results_class[which.max(results_class[, "accuracy"]), "laplace"]
+
+best_modelo_reg <- naiveBayes(SalePrice ~ ., data = training_imputed %>% select(-Category), laplace = best_laplace_reg)
+best_modelo_class <- naiveBayes(Category ~ ., data = training_imputed %>% select(-SalePrice), laplace = best_laplace_class)
+
+pred_reg_test <- predict(best_modelo_reg, newdata = test_imputed %>% select(-SalePrice, -Category))
+pred_reg_test <- as.numeric(pred_reg_test)
+best_mse_reg <- mean((test_imputed$SalePrice - pred_reg_test)^2, na.rm = TRUE)
+best_rmse_reg <- sqrt(best_mse_reg)
+best_sst_reg <- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
+best_ssr_reg <- sum((test_imputed$SalePrice - pred_reg_test)^2)
+best_r2_reg <- 1 - (best_ssr_reg / best_sst_reg)
+
+pred_class_test <- predict(best_modelo_class, newdata = test_imputed %>% select(-SalePrice))
+best_conf <- confusionMatrix(pred_class_test, test_imputed$Category)
+best_accuracy <- best_conf$overall["Accuracy"]
+best_kappa <- best_conf$overall["Kappa"]
+
+cat("Resultados de la optimización de hiperparámetros:\n\n")
+
+cat("Para el modelo de regresión:\n")
+print(results_reg)
+cat("\nMejor valor de laplace:", best_laplace_reg, "\n\n")
+
+cat("Para el modelo de clasificación:\n")
+print(results_class)
+cat("\nMejor valor de laplace:", best_laplace_class, "\n\n")
+
+```
+## Comparacion con otros modelos
+```{r}
+
+cat("Modelo de regresión original:\n")
+cat("RMSE:", rmse, "\n")
+cat("R²:", r2, "\n\n")
+
+cat("Modelo de regresión optimizado:\n")
+cat("RMSE:", best_rmse_reg, "\n")
+cat("R²:", best_r2_reg, "\n\n")
+
+cat("Modelo de clasificación original:\n")
+cat("Accuracy:", conf$overall["Accuracy"], "\n")
+cat("Kappa:", conf$overall["Kappa"], "\n\n")
+
+cat("Modelo de clasificación optimizado:\n")
+cat("Accuracy:", best_accuracy, "\n")
+cat("Kappa:", best_kappa, "\n\n")
 ```
 
