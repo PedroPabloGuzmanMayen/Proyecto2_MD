@@ -520,17 +520,16 @@ identificar debidamente casas baratas.</p>
 </div>
 <div id="evaluacion-de-sobreajuste" class="section level1">
 <h1>Evaluacion de sobreajuste</h1>
-<pre class="r"><code>predicciones_train &lt;- predict(modelo, newdata = data_to_train[, -1])</code></pre>
-<pre><code>## Warning in predict.naiveBayes(modelo, newdata = data_to_train[, -1]): Type
-## mismatch between training and new data for variable &#39;MSSubClass&#39;. Did you use
-## factors with numeric labels for training, and numeric values for new data?</code></pre>
-<pre class="r"><code>predicciones_train &lt;- as.numeric(predicciones_train)
+<div id="modelo-de-regresión" class="section level2">
+<h2>Modelo de regresión</h2>
+<pre class="r"><code>predicciones_train &lt;- predict(modelo, newdata = data_to_train[, -1])
+predicciones_train &lt;- as.numeric(predicciones_train)
 
 mse_train &lt;- mean((training_data$SalePrice - predicciones_train)^2, na.rm = TRUE)
 rmse_train &lt;- sqrt(mse_train)
 sst_train &lt;- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
 ssr_train &lt;- sum((training_data$SalePrice - predicciones_train)^2)
-r2_train &lt;- 1 - (ssr_train / sst_train)
+r2_train &lt;-  1 - (sst_train / ssr_train)
 
 cat(&quot;Métricas en entrenamiento:\n&quot;)</code></pre>
 <pre><code>## Métricas en entrenamiento:</code></pre>
@@ -539,7 +538,7 @@ cat(&quot;Métricas en entrenamiento:\n&quot;)</code></pre>
 <pre class="r"><code>cat(&quot;RMSE:&quot;, rmse_train, &quot;\n&quot;)</code></pre>
 <pre><code>## RMSE: 204177.8</code></pre>
 <pre class="r"><code>cat(&quot;R^2:&quot;, r2_train, &quot;\n\n&quot;)</code></pre>
-<pre><code>## R^2: -4.799896</code></pre>
+<pre><code>## R^2: 0.8275831</code></pre>
 <pre class="r"><code>cat(&quot;Métricas en prueba:\n&quot;)</code></pre>
 <pre><code>## Métricas en prueba:</code></pre>
 <pre class="r"><code>cat(&quot;MSE:&quot;, mse_regresion, &quot;\n&quot;)</code></pre>
@@ -548,22 +547,57 @@ cat(&quot;Métricas en entrenamiento:\n&quot;)</code></pre>
 <pre><code>## RMSE: 210035.8</code></pre>
 <pre class="r"><code>cat(&quot;R^2:&quot;, r2, &quot;\n&quot;)</code></pre>
 <pre><code>## R^2: 0.8130435</code></pre>
-<p>Los resultados del modelo muestran un comportamiento inusual en el
-conjunto de entrenamiento. El MSE en entrenamiento es 41,688,592,433, y
-el RMSE es 204,177.8, lo que indica que las predicciones tienen un error
-alto en promedio. Sin embargo, el valor de R² en entrenamiento es
--4.7999, lo que nos dice que el modelo tiene un ajuste muy deficiente en
-los datos de entrenamiento y que la varianza explicada es negativa, por
-lo que puede ser un indicio que existe sobreajuste.</p>
-<p>Por otro lado, en el conjunto de prueba, el MSE es 44,115,050,934 y
-el RMSE es 210,035.8, valores igualmente altos, aunque similares a los
-de entrenamiento. El R² en prueba es 0.8130, lo que indica que el modelo
-logra explicar el 81.3% de la varianza en los datos de prueba, lo cual
-es un buen desempeño de ajuste. Sin embargo, la gran diferencia entre
-los valores de R² en entrenamiento y prueba sugiere que el modelo no
-está aprendiendo bien los patrones en los datos de entrenamiento, lo que
-puede deberse a problemas en la conversión de variables o en la
-naturaleza del modelo Naive Bayes para regresión.</p>
+<p>Tanto para los datos de prueba como para los datos de entrenamiento
+se obtuvieron resultados similares, por ende el modelo de regresión no
+tiene sobreajuste, de hecho se puede decir que el modelo generaliza bien
+incluso datos que no conoce.</p>
+</div>
+<div id="modelo-de-clasificación-1" class="section level2">
+<h2>Modelo de clasificación</h2>
+<pre class="r"><code>training_pred_class &lt;- predict(modelo_clasificacion, newdata = data_to_train[, -1])
+
+training_conf_matrix &lt;- confusionMatrix(training_pred_class, training_data$Category)
+
+training_conf_matrix</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##           Reference
+## Prediction Baratas Caras Medianas
+##   Baratas       87     0      206
+##   Caras          0   197       30
+##   Medianas       3    24      474
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.7424         
+##                  95% CI : (0.7144, 0.769)
+##     No Information Rate : 0.6954         
+##     P-Value [Acc &gt; NIR] : 0.0005262      
+##                                          
+##                   Kappa : 0.5599         
+##                                          
+##  Mcnemar&#39;s Test P-Value : NA             
+## 
+## Statistics by Class:
+## 
+##                      Class: Baratas Class: Caras Class: Medianas
+## Sensitivity                 0.96667       0.8914          0.6676
+## Specificity                 0.77873       0.9625          0.9132
+## Pos Pred Value              0.29693       0.8678          0.9461
+## Neg Pred Value              0.99588       0.9698          0.5462
+## Prevalence                  0.08815       0.2165          0.6954
+## Detection Rate              0.08521       0.1929          0.4643
+## Detection Prevalence        0.28697       0.2223          0.4907
+## Balanced Accuracy           0.87270       0.9270          0.7904</code></pre>
+<p>El modelo de clasificación tampoco presente sobreajuste pues obtuvo
+resultados muy similares con los datos de prueba y con los datos de
+entrenamiento. El modelo con los datosobtuvo incluso resultados mejores
+pues tuvo un mejor accuracy y se equivocó menos hallando casas
+medianas.</p>
+</div>
+</div>
+<div id="validación-cruzada" class="section level1">
+<h1>Validación cruzada</h1>
 <pre class="r"><code>set.seed(245)
 
 training_imputed &lt;- training_data
@@ -580,10 +614,9 @@ for(col in colnames(training_imputed)[cat_cols]) {
   mode_val &lt;- names(sort(table(training_imputed[[col]]), decreasing = TRUE)[1])
   training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mode_val
   test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mode_val
-}</code></pre>
-<pre><code>## Warning in `[&lt;-.factor`(`*tmp*`, is.na(test_imputed[[col]]), value = &quot;Ex&quot;):
-## invalid factor level, NA generated</code></pre>
-<pre class="r"><code>set.seed(245)
+}
+
+set.seed(245)
 k &lt;- 5  
 folds &lt;- createFolds(training_imputed$SalePrice, k = k, list = TRUE, returnTrain = FALSE)
 
@@ -607,7 +640,7 @@ cv_mse &lt;- mean((training_imputed$SalePrice - cv_predictions)^2, na.rm = TRUE)
 cv_rmse &lt;- sqrt(cv_mse)
 cv_sst &lt;- sum((training_imputed$SalePrice - mean(training_imputed$SalePrice))^2)
 cv_ssr &lt;- sum((training_imputed$SalePrice - cv_predictions)^2)
-cv_r2 &lt;- 1 - (cv_ssr / cv_sst)
+cv_r2 &lt;- 1 - (cv_sst / cv_ssr)
 
 modelo_final &lt;- naiveBayes(SalePrice ~ ., data = training_imputed %&gt;% select(-Category))
 
@@ -618,7 +651,7 @@ test_mse &lt;- mean((test_imputed$SalePrice - test_pred)^2, na.rm = TRUE)
 test_rmse &lt;- sqrt(test_mse)
 test_sst &lt;- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
 test_ssr &lt;- sum((test_imputed$SalePrice - test_pred)^2)
-test_r2 &lt;- 1 - (test_ssr / test_sst)
+test_r2 &lt;- 1 - (test_sst / test_ssr)
 
 cat(&quot;Modelo original:\n&quot;)</code></pre>
 <pre><code>## Modelo original:</code></pre>
@@ -631,27 +664,19 @@ cat(&quot;Modelo original:\n&quot;)</code></pre>
 <pre class="r"><code>cat(&quot;RMSE en validación cruzada:&quot;, cv_rmse, &quot;\n&quot;)</code></pre>
 <pre><code>## RMSE en validación cruzada: 204219.4</code></pre>
 <pre class="r"><code>cat(&quot;R² en validación cruzada:&quot;, cv_r2, &quot;\n&quot;)</code></pre>
-<pre><code>## R² en validación cruzada: -4.802259</code></pre>
+<pre><code>## R² en validación cruzada: 0.8276533</code></pre>
 <pre class="r"><code>cat(&quot;RMSE en prueba:&quot;, test_rmse, &quot;\n&quot;)</code></pre>
 <pre><code>## RMSE en prueba: 210035.8</code></pre>
 <pre class="r"><code>cat(&quot;R² en prueba:&quot;, test_r2, &quot;\n\n&quot;)</code></pre>
-<pre><code>## R² en prueba: -4.348834</code></pre>
-<p>Los resultados obtenidos muestran que el modelo con validación
-cruzada presenta un RMSE en validación cruzada de 204,219.4, esto indica
-un error promedio en la predicción similar al modelo original. Sin
-embargo, el R² en validación cruzada es -4.8023, lo que indica que el
-modelo no logra explicar la variabilidad en los datos y es menos
-efectivo que simplemente predecir la media.</p>
-<p>En la evaluación sobre el conjunto de prueba, el modelo con
-validación cruzada obtiene un RMSE de 210,035.8, exactamente igual al
-modelo original, pero un R² de -4.3488, lo que indica que su desempeño
-en términos de ajuste es significativamente peor que el modelo original
-(R² = 0.8130). Esto implica que, aunque la validación cruzada ayuda a
-reducir la varianza del modelo, el rendimiento general no mejora y, en
-este caso, es incluso más deficiente en la prueba. Por lo que, el modelo
-original basado en Naive Bayes sin validación cruzada es más adecuado
-para la predicción del precio de las casas, ya que presenta un mejor
-ajuste y explica más variabilidad en los datos.</p>
+<pre><code>## R² en prueba: 0.8130434</code></pre>
+<p>En general, el modelo de validación cruzada mostró resultados
+bastante similares a los que se obtuvieron en el modelo de regresión
+original, debido a que no se presenta una mejora significativa a los
+resultados del original se determinó que este modelo no es mejor que el
+original.</p>
+</div>
+<div id="mejora-del-modelo" class="section level1">
+<h1>Mejora del modelo</h1>
 <pre class="r"><code>set.seed(245)
 
 training_imputed &lt;- training_data
@@ -670,15 +695,14 @@ for(col in colnames(training_imputed)[cat_cols]) {
     training_imputed[[col]][is.na(training_imputed[[col]])] &lt;- mode_val
     test_imputed[[col]][is.na(test_imputed[[col]])] &lt;- mode_val
   }
-}</code></pre>
-<pre><code>## Warning in `[&lt;-.factor`(`*tmp*`, is.na(test_imputed[[col]]), value = &quot;Ex&quot;):
-## invalid factor level, NA generated</code></pre>
-<pre class="r"><code>set.seed(245)
+}
+
+set.seed(245)
 val_index &lt;- sample(nrow(training_imputed), nrow(training_imputed) * 0.2)
 train_hp &lt;- training_imputed[-val_index, ]
 val_hp &lt;- training_imputed[val_index, ]
 
-laplace_values &lt;- c(0, 1, 2, 5)
+laplace_values &lt;- c(0, 1, 2, 5, 10, 15)
 
 results_reg &lt;- matrix(NA, nrow = length(laplace_values), ncol = 2)
 colnames(results_reg) &lt;- c(&quot;laplace&quot;, &quot;rmse&quot;)
@@ -719,7 +743,7 @@ best_mse_reg &lt;- mean((test_imputed$SalePrice - pred_reg_test)^2, na.rm = TRUE
 best_rmse_reg &lt;- sqrt(best_mse_reg)
 best_sst_reg &lt;- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
 best_ssr_reg &lt;- sum((test_imputed$SalePrice - pred_reg_test)^2)
-best_r2_reg &lt;- 1 - (best_ssr_reg / best_sst_reg)
+best_r2_reg &lt;- 1 - (best_sst_reg / best_ssr_reg)
 
 pred_class_test &lt;- predict(best_modelo_class, newdata = test_imputed %&gt;% select(-SalePrice))
 best_conf &lt;- confusionMatrix(pred_class_test, test_imputed$Category)
@@ -735,7 +759,9 @@ cat(&quot;Resultados de la optimización de hiperparámetros:\n\n&quot;)</code><
 ## [1,]       0 198561.3
 ## [2,]       1 198566.4
 ## [3,]       2 198565.7
-## [4,]       5 198565.7</code></pre>
+## [4,]       5 198565.7
+## [5,]      10 198565.1
+## [6,]      15 198565.1</code></pre>
 <pre class="r"><code>cat(&quot;\nMejor valor de laplace:&quot;, best_laplace_reg, &quot;\n\n&quot;)</code></pre>
 <pre><code>## 
 ## Mejor valor de laplace: 0</code></pre>
@@ -746,12 +772,15 @@ cat(&quot;Resultados de la optimización de hiperparámetros:\n\n&quot;)</code><
 ## [1,]       0 0.6764706
 ## [2,]       1 0.6813725
 ## [3,]       2 0.6813725
-## [4,]       5 0.7107843</code></pre>
+## [4,]       5 0.7107843
+## [5,]      10 0.7647059
+## [6,]      15 0.7745098</code></pre>
 <pre class="r"><code>cat(&quot;\nMejor valor de laplace:&quot;, best_laplace_class, &quot;\n\n&quot;)</code></pre>
 <pre><code>## 
-## Mejor valor de laplace: 5</code></pre>
-<div id="comparacion-con-otros-modelos" class="section level2">
-<h2>Comparacion con otros modelos</h2>
+## Mejor valor de laplace: 15</code></pre>
+</div>
+<div id="comparacion-con-otros-modelos" class="section level1">
+<h1>Comparacion con otros modelos</h1>
 <pre class="r"><code>cat(&quot;Modelo de regresión original:\n&quot;)</code></pre>
 <pre><code>## Modelo de regresión original:</code></pre>
 <pre class="r"><code>cat(&quot;RMSE:&quot;, rmse, &quot;\n&quot;)</code></pre>
@@ -763,7 +792,7 @@ cat(&quot;Resultados de la optimización de hiperparámetros:\n\n&quot;)</code><
 <pre class="r"><code>cat(&quot;RMSE:&quot;, best_rmse_reg, &quot;\n&quot;)</code></pre>
 <pre><code>## RMSE: 210035.8</code></pre>
 <pre class="r"><code>cat(&quot;R²:&quot;, best_r2_reg, &quot;\n\n&quot;)</code></pre>
-<pre><code>## R²: -4.348834</code></pre>
+<pre><code>## R²: 0.8130434</code></pre>
 <pre class="r"><code>cat(&quot;Modelo de clasificación original:\n&quot;)</code></pre>
 <pre><code>## Modelo de clasificación original:</code></pre>
 <pre class="r"><code>cat(&quot;Accuracy:&quot;, conf$overall[&quot;Accuracy&quot;], &quot;\n&quot;)</code></pre>
@@ -773,10 +802,27 @@ cat(&quot;Resultados de la optimización de hiperparámetros:\n\n&quot;)</code><
 <pre class="r"><code>cat(&quot;Modelo de clasificación optimizado:\n&quot;)</code></pre>
 <pre><code>## Modelo de clasificación optimizado:</code></pre>
 <pre class="r"><code>cat(&quot;Accuracy:&quot;, best_accuracy, &quot;\n&quot;)</code></pre>
-<pre><code>## Accuracy: 0.777439</code></pre>
+<pre><code>## Accuracy: 0.820122</code></pre>
 <pre class="r"><code>cat(&quot;Kappa:&quot;, best_kappa, &quot;\n\n&quot;)</code></pre>
-<pre><code>## Kappa: 0.604519</code></pre>
-</div>
+<pre><code>## Kappa: 0.6619147</code></pre>
+<p>Finalmente, lugo de tunear los hiperparámetros de los modelos se
+obtuvo que para el modelo de regresión el mejor r2 fue de 0.8130434 y el
+mejor RMSE fue 210035.8. El r2 es un poco mejor que el del modelo de
+regresión del árbol (0.80) pero el RMSE es significativamente mayor.
+Además también tuvo un r2 mayor que el modelo de regresión lineal pero
+un RMSE mayor (0.71). En base a estos resultados se puede concluir que
+el modelo de regresión del árbol es el mejor pues obtuvo un r2 de 0.80 y
+un RMSE menor que los de los otros modelos.</p>
+<p>En cuánto a los modelos de clasificación, se obtuvo un accuracy de
+0.82 y un kappa value de 0.66 para el modelo de Bayes Ingenuo. El modelo
+de árbol de clasificación obtuvo un accuracy de 0.88 y un kappa value de
+0.77. El random forest obtuvo un accuracy de 0.98 y un kappa value de 1.
+Los modelos de clasificación realizados en hojas anteriores mostraron
+resultados significativamente mejores por lo que el modelo de Bayes
+Ingenuo puede ser descartado. EL modelo de random forest obtuvo muy
+buenos resultados con los datos de prueba, sin embargo toma una mayor
+cantidad de tiempo en hacer predicciones por lo que el modelo con mejor
+desempeño sigue siendo el modelo del árbol de clasifcación.</p>
 </div>
 
 
