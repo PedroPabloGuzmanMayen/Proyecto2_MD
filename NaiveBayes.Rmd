@@ -5,6 +5,9 @@ date: "2025-03-14"
 output: html_document
 ---
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
 # Creación del modelo de regresión usando Naive Bayes
 
 ## Librerías y lectura de datos
@@ -105,7 +108,10 @@ La matriz deconfusión muestra que el modelo de clasificación tuvo un accuracy 
 
 # Evaluacion de sobreajuste
 
+## Modelo de regresión
+
 ```{r}
+
 predicciones_train <- predict(modelo, newdata = data_to_train[, -1])
 predicciones_train <- as.numeric(predicciones_train)
 
@@ -113,7 +119,7 @@ mse_train <- mean((training_data$SalePrice - predicciones_train)^2, na.rm = TRUE
 rmse_train <- sqrt(mse_train)
 sst_train <- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
 ssr_train <- sum((training_data$SalePrice - predicciones_train)^2)
-r2_train <- 1 - (ssr_train / sst_train)
+r2_train <-  1 - (sst_train / ssr_train)
 
 cat("Métricas en entrenamiento:\n")
 cat("MSE:", mse_train, "\n")
@@ -126,9 +132,21 @@ cat("RMSE:", rmse, "\n")
 cat("R^2:", r2, "\n")
 ```
 
-Los resultados del modelo muestran un comportamiento inusual en el conjunto de entrenamiento. El MSE en entrenamiento es 41,688,592,433, y el RMSE es 204,177.8, lo que indica que las predicciones tienen un error alto en promedio. Sin embargo, el valor de R² en entrenamiento es -4.7999, lo que nos dice que el modelo tiene un ajuste muy deficiente en los datos de entrenamiento y que la varianza explicada es negativa, por lo que puede ser un indicio que existe sobreajuste.
+Tanto para los datos de prueba como para los datos de entrenamiento se obtuvieron resultados similares, por ende el modelo de regresión no tiene sobreajuste, de hecho se puede decir que el modelo generaliza bien incluso datos que no conoce. 
 
-Por otro lado, en el conjunto de prueba, el MSE es 44,115,050,934 y el RMSE es 210,035.8, valores igualmente altos, aunque similares a los de entrenamiento. El R² en prueba es 0.8130, lo que indica que el modelo logra explicar el 81.3% de la varianza en los datos de prueba, lo cual es un buen desempeño  de ajuste. Sin embargo, la gran diferencia entre los valores de R² en entrenamiento y prueba sugiere que el modelo no está aprendiendo bien los patrones en los datos de entrenamiento, lo que puede deberse a problemas en la conversión de variables o en la naturaleza del modelo Naive Bayes para regresión.
+## Modelo de clasificación
+
+```{r}
+
+training_pred_class <- predict(modelo_clasificacion, newdata = data_to_train[, -1])
+
+training_conf_matrix <- confusionMatrix(training_pred_class, training_data$Category)
+
+training_conf_matrix
+```
+El modelo de clasificación tampoco presente sobreajuste pues obtuvo resultados muy similares con los datos de prueba y con los datos de entrenamiento. El modelo con los datosobtuvo incluso resultados mejores pues tuvo un mejor accuracy y se equivocó menos hallando casas medianas. 
+
+# Validación cruzada
 
 ```{r - Validacion Cruzada}
 set.seed(245)
@@ -173,7 +191,7 @@ cv_mse <- mean((training_imputed$SalePrice - cv_predictions)^2, na.rm = TRUE)
 cv_rmse <- sqrt(cv_mse)
 cv_sst <- sum((training_imputed$SalePrice - mean(training_imputed$SalePrice))^2)
 cv_ssr <- sum((training_imputed$SalePrice - cv_predictions)^2)
-cv_r2 <- 1 - (cv_ssr / cv_sst)
+cv_r2 <- 1 - (cv_sst / cv_ssr)
 
 modelo_final <- naiveBayes(SalePrice ~ ., data = training_imputed %>% select(-Category))
 
@@ -184,7 +202,7 @@ test_mse <- mean((test_imputed$SalePrice - test_pred)^2, na.rm = TRUE)
 test_rmse <- sqrt(test_mse)
 test_sst <- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
 test_ssr <- sum((test_imputed$SalePrice - test_pred)^2)
-test_r2 <- 1 - (test_ssr / test_sst)
+test_r2 <- 1 - (test_sst / test_ssr)
 
 cat("Modelo original:\n")
 cat("RMSE:", rmse, "\n")
@@ -197,9 +215,10 @@ cat("RMSE en prueba:", test_rmse, "\n")
 cat("R² en prueba:", test_r2, "\n\n")
 ```
 
-Los resultados obtenidos muestran que el modelo con validación cruzada presenta un RMSE en validación cruzada de 204,219.4, esto indica un error promedio en la predicción similar al modelo original. Sin embargo, el R² en validación cruzada es -4.8023, lo que indica que el modelo no logra explicar la variabilidad en los datos y es menos efectivo que simplemente predecir la media. 
+En general, el modelo de validación cruzada mostró resultados bastante similares a los que se obtuvieron en el modelo de regresión original, debido a que no se presenta una mejora significativa a los resultados del original se determinó que este modelo no es mejor que el original. 
 
-En la evaluación sobre el conjunto de prueba, el modelo con validación cruzada obtiene un RMSE de 210,035.8, exactamente igual al modelo original, pero un R² de -4.3488, lo que indica que su desempeño en términos de ajuste es significativamente peor que el modelo original (R² = 0.8130). Esto implica que, aunque la validación cruzada ayuda a reducir la varianza del modelo, el rendimiento general no mejora y, en este caso, es incluso más deficiente en la prueba. Por lo que, el modelo original basado en Naive Bayes sin validación cruzada es más adecuado para la predicción del precio de las casas, ya que presenta un mejor ajuste y explica más variabilidad en los datos.
+
+# Mejora del modelo
 
 ```{r}
 set.seed(245)
@@ -227,7 +246,7 @@ val_index <- sample(nrow(training_imputed), nrow(training_imputed) * 0.2)
 train_hp <- training_imputed[-val_index, ]
 val_hp <- training_imputed[val_index, ]
 
-laplace_values <- c(0, 1, 2, 5)
+laplace_values <- c(0, 1, 2, 5, 10, 15)
 
 results_reg <- matrix(NA, nrow = length(laplace_values), ncol = 2)
 colnames(results_reg) <- c("laplace", "rmse")
@@ -268,7 +287,7 @@ best_mse_reg <- mean((test_imputed$SalePrice - pred_reg_test)^2, na.rm = TRUE)
 best_rmse_reg <- sqrt(best_mse_reg)
 best_sst_reg <- sum((test_imputed$SalePrice - mean(test_imputed$SalePrice))^2)
 best_ssr_reg <- sum((test_imputed$SalePrice - pred_reg_test)^2)
-best_r2_reg <- 1 - (best_ssr_reg / best_sst_reg)
+best_r2_reg <- 1 - (best_sst_reg / best_ssr_reg)
 
 pred_class_test <- predict(best_modelo_class, newdata = test_imputed %>% select(-SalePrice))
 best_conf <- confusionMatrix(pred_class_test, test_imputed$Category)
@@ -286,7 +305,7 @@ print(results_class)
 cat("\nMejor valor de laplace:", best_laplace_class, "\n\n")
 
 ```
-## Comparacion con otros modelos
+# Comparacion con otros modelos
 ```{r}
 
 cat("Modelo de regresión original:\n")
@@ -305,4 +324,7 @@ cat("Modelo de clasificación optimizado:\n")
 cat("Accuracy:", best_accuracy, "\n")
 cat("Kappa:", best_kappa, "\n\n")
 ```
+Finalmente, lugo de tunear los hiperparámetros de los modelos se obtuvo que para el modelo de regresión el mejor r2 fue de 0.8130434 y el mejor RMSE fue 210035.8. El r2 es un poco mejor que el del modelo de regresión del árbol (0.80) pero el RMSE es significativamente mayor. Además también tuvo un r2 mayor que el modelo de regresión lineal pero un RMSE mayor (0.71). En base a estos resultados se puede concluir que el modelo de regresión del árbol es el mejor pues obtuvo un r2 de 0.80 y un RMSE menor que los de los otros modelos. 
 
+En cuánto a los modelos de clasificación, se obtuvo un accuracy de 0.82 y un kappa value de 0.66 para el modelo de Bayes Ingenuo. El modelo de árbol de clasificación obtuvo un accuracy de 0.88 y un kappa value de 0.77. El random forest obtuvo un accuracy de 0.98 y un kappa value de 1. Los modelos de clasificación realizados en hojas anteriores mostraron resultados significativamente mejores por lo que el modelo de Bayes Ingenuo puede ser descartado. 
+EL modelo de random forest obtuvo muy buenos resultados con los datos de prueba, sin embargo toma una mayor cantidad de tiempo en hacer predicciones por lo que el modelo con mejor desempeño sigue siendo el modelo del árbol de clasifcación. 
