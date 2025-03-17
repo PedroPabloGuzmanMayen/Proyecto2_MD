@@ -1,236 +1,100 @@
 ---
-title: "Naive Bayes"
-author: "Gustavo Cruz; Pedro Guzman"
-date: "2025-03-08"
+title: "Bayes Ingenuo"
+author: "Pedro Guzmán, Gustavo Cruz"
+date: "2025-03-14"
 output: html_document
 ---
 
-#### Repositorio
-Repositorio: https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
-[Revisar la branch correspondiente a los Arboles de Decision]
+# Creación del modelo de regresión usando Naive Bayes
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
-```
+## Librerías y lectura de datos
 
-```{r Chunk para instalar paquetes}
+```{r}
+library(e1071)
+library(caret)
+library(dplyr)
 library(ggplot2)
-library(e1071)  
-library(caret)  
-library(dplyr)  
 library(Metrics)
-library(rpart)
-library(rpart.plot)
-library(randomForest)
+
+training_data <- read.csv("train.csv")
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(training_data),nrow(training_data) * porciento)
+training_data <- training_data[corte, ]
+test_data <- training_data[-corte, ]
+mean_price <- mean(training_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(training_data$SalePrice, na.rm = TRUE)
+lower_limit <- median(training_data$SalePrice)
+upper_limit <- mad(training_data$SalePrice)
+
+training_data$Category <- ifelse(training_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                                 ifelse(training_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+test_data$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                             ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+training_data <- training_data %>% select(-Id) %>% mutate_if(is.character, as.factor)
+test_data <- test_data %>% mutate_if(is.character, as.factor)
 ```
 
-## 1. Modelo de Regresión con Naive Bayes
+## Creación del modelo de regresión
 
-```{r Modelo de Regresion con Bayes}
-data <- read.csv("train.csv")
-# Seleccionar variables de interés
-data <- data %>%
-  select(SalePrice, GrLivArea, OverallQual, GarageCars, YearBuilt)
-# Dividir en entrenamiento (80%) y prueba (20%)
-set.seed(42)  # Para reproducibilidad
-trainIndex <- createDataPartition(data$SalePrice, p = 0.8, list = FALSE)
-training_data <- data[trainIndex, ]
-testing_data <- data[-trainIndex, ]
-# Crear variable categórica basada en cuartiles
-training_data$PriceCategory <- cut(training_data$SalePrice,
-                                   breaks = quantile(training_data$SalePrice, probs = seq(0, 1, 0.25), na.rm = TRUE),
-                                   labels = c("Bajo", "Medio-Bajo", "Medio-Alto", "Alto"),
-                                   include.lowest = TRUE)
-testing_data$PriceCategory <- cut(testing_data$SalePrice,
-                                  breaks = quantile(training_data$SalePrice, probs = seq(0, 1, 0.25), na.rm = TRUE),
-                                  labels = c("Bajo", "Medio-Bajo", "Medio-Alto", "Alto"),
-                                  include.lowest = TRUE)
-# Convertir a factor
-training_data$PriceCategory <- as.factor(training_data$PriceCategory)
-testing_data$PriceCategory <- as.factor(testing_data$PriceCategory)
-training_data$SalePrice <- as.numeric(training_data$SalePrice)
-testing_data$SalePrice <- as.numeric(testing_data$SalePrice)
-
-# Discretizar variable para Naive Bayes de regresión
-breaks <- seq(min(training_data$SalePrice), max(training_data$SalePrice), length.out = 10)
-training_data$SalePriceBin <- cut(training_data$SalePrice, breaks = breaks)
-
-# Registrar tiempo de inicio
-start_time_nb <- Sys.time()
-
-# Entrenar el modelo Naive Bayes para regresión
-nb_model <- naiveBayes(SalePriceBin ~ GrLivArea + OverallQual + GarageCars + YearBuilt, 
-                      data = training_data)
-
-# Registrar tiempo final
-end_time_nb <- Sys.time()
-time_nb <- end_time_nb - start_time_nb
-
-# Predecir probabilidades
-nb_pred_prob <- predict(nb_model, testing_data, type = "raw")
-
-# Calcular predicciones usando promedio ponderado
-bin_centers <- sapply(levels(training_data$SalePriceBin), function(bin) {
-  interval <- as.numeric(strsplit(gsub("\\(|\\]", "", bin), ",")[[1]])
-  mean(interval)
-})
-
-nb_predictions <- apply(nb_pred_prob, 1, function(probs) {
-  sum(probs * bin_centers)
-})
-
-# También calcular predicciones en conjunto de entrenamiento para análisis de sobreajuste
-train_pred_prob <- predict(nb_model, training_data, type = "raw")
-train_predictions_nb <- apply(train_pred_prob, 1, function(probs) {
-  sum(probs * bin_centers)
-})
+```{r}
+data_to_train <- training_data %>% select(-Category)
+modelo <- naiveBayes(training_data$SalePrice ~ ., data = data_to_train)
+data_to_test <- test_data %>% select(-SalePrice)
+predicciones <- predict(modelo, newdata = data_to_test[, -1])
 ```
 
-## 2. Análisis del Modelo de Regresión con Naive Bayes
+## Evaluación del modelo de regresión
 
-```{r Rendimiento de Bayes}
-# Métricas en conjunto de prueba
-rmse_nb_test <- rmse(testing_data$SalePrice, nb_predictions)
-mae_nb_test <- mae(testing_data$SalePrice, nb_predictions)
+```{r}
+predicciones <- as.numeric(predicciones)
+mse_regresion <- mean((test_data$SalePrice - predicciones)^2, na.rm = TRUE)
+rmse <- sqrt(mse_regresion)
+sst_test <- sum((test_data$SalePrice - mean(test_data$SalePrice))^2)
+ssr_test <- sum((test_data$SalePrice - predicciones)^2)
+r2 <- 1 - (sst_test / ssr_test)
 
-# Métricas en conjunto de entrenamiento
-rmse_nb_train <- rmse(training_data$SalePrice, train_predictions_nb)
-mae_nb_train <- mae(training_data$SalePrice, train_predictions_nb)
-
-# R-cuadrado
-sst_test <- sum((testing_data$SalePrice - mean(testing_data$SalePrice))^2)
-ssr_test <- sum((testing_data$SalePrice - nb_predictions)^2)
-r2_nb_test <- 1 - (ssr_test / sst_test)
-
-sst_train <- sum((training_data$SalePrice - mean(training_data$SalePrice))^2)
-ssr_train <- sum((training_data$SalePrice - train_predictions_nb)^2)
-r2_nb_train <- 1 - (ssr_train / sst_train)
-
-# Mostrar resultados
-cat("===== Métricas del modelo de regresión Naive Bayes =====\n")
-cat("En conjunto de entrenamiento:\n")
-cat("RMSE:", rmse_nb_train, "\n")
-cat("MAE:", mae_nb_train, "\n")
-cat("R²:", r2_nb_train, "\n\n")
-
-cat("En conjunto de prueba:\n")
-cat("RMSE:", rmse_nb_test, "\n")
-cat("MAE:", mae_nb_test, "\n")
-cat("R²:", r2_nb_test, "\n\n")
-
-cat("Diferencia (prueba - entrenamiento):\n")
-cat("RMSE:", rmse_nb_test - rmse_nb_train, "\n")
-cat("R²:", r2_nb_test - r2_nb_train, "\n")
-cat("Tiempo de entrenamiento:", time_nb, "segundos\n")
-
-# Gráfico de valores reales vs predichos
-plot(testing_data$SalePrice, nb_predictions, 
-     main = "Valores reales vs. predichos (Naive Bayes)",
-     xlab = "Precio real", ylab = "Precio predicho",
-     pch = 19, col = "blue", cex = 0.7)
-abline(0, 1, col = "red")
+mse_regresion
+rmse
+r2
 ```
 
-### Análisis de los resultados del modelo Naive Bayes:
+El error mse fue de 32283342452, el rmse fue de 179675.7 y el r2 es de 0.8130435. El coeficiente r2 muestra que el modelo generado explica el
+81% de la varianza en los datos y que el modelo es bastante bueno prediciendo precios de las casas, esto a pesar de que el mse fue bastante
+alto. El RMSE alto puede indicar que el modelo fala en bastantes predicciones.
 
-El modelo de regresión basado en Naive Bayes muestra un RMSE de prueba de `r rmse_nb_test` y un R² de `r r2_nb_test`. Esto indica que el modelo tiene cierta capacidad predictiva, pero presenta algunas limitaciones. La diferencia entre RMSE de entrenamiento y prueba nos permite evaluar si existe sobreajuste.
+## Comparación con otros modelos
 
-El valor R² relativamente bajo sugiere que el modelo explica solo una parte limitada de la variabilidad en los precios de venta. Esto es esperable dado que Naive Bayes asume independencia entre características, lo cual no es necesariamente cierto para datos de precios de viviendas donde existe correlación entre características como tamaño y calidad.
+En el árbol de regresión se obtuvo un RMSE de 37033.09, el cuál es siginificativamente más bajo que el que se obtuvo en el modelo de regresión de naive bayes, sin embargo el r2 en el del árbol de regresión fue de 0.809198. Se puede decir que el modelo del árbol es mejor que el modelo Naive bayes pues explica la varianza de una forma similar y tiene menor error en sus predicciones.
 
-En el gráfico de valores reales vs predichos podemos observar que, aunque hay cierta tendencia lineal, existe dispersión considerable alrededor de la línea ideal, lo que confirma las limitaciones del modelo para capturar completamente la relación entre las variables predictoras y el precio.
+El modelo de regresión lineal tuvo un RMSE de 38687.16 y en r2 de 0.7154753. El error es mucho menor pero el r2 también, este modelo no es muy bueno explicando la varianza mientras que el Naive Bayes es excelente en eso, sin embargo este modelo comete menos errores en su predicción.
 
-## 3. Comparación con modelos anteriores (Regresión Lineal y Árbol de Regresión)
+```{r}
+arbol_rmse <- 37033.09
+arbol_r2 <- 0.809198
 
-```{r Modelos Anteriores}
-# Crear modelo de regresión lineal
-start_time_lm <- Sys.time()
-lm_model <- lm(SalePrice ~ GrLivArea + OverallQual + GarageCars + YearBuilt, data = training_data)
-end_time_lm <- Sys.time()
-time_lm <- end_time_lm - start_time_lm
-
-# Predicciones del modelo lineal
-lm_predictions_test <- predict(lm_model, testing_data)
-lm_predictions_train <- predict(lm_model, training_data)
-
-# Crear modelo de árbol de regresión
-start_time_tree <- Sys.time()
-tree_model <- rpart(SalePrice ~ GrLivArea + OverallQual + GarageCars + YearBuilt, 
-                   data = training_data, method = "anova")
-end_time_tree <- Sys.time()
-time_tree <- end_time_tree - start_time_tree
-
-# Predicciones del árbol
-tree_predictions_test <- predict(tree_model, testing_data)
-tree_predictions_train <- predict(tree_model, training_data)
-
-# Calcular métricas para regresión lineal
-rmse_lm_test <- rmse(testing_data$SalePrice, lm_predictions_test)
-mae_lm_test <- mae(testing_data$SalePrice, lm_predictions_test)
-rmse_lm_train <- rmse(training_data$SalePrice, lm_predictions_train)
-r2_lm_test <- 1 - sum((testing_data$SalePrice - lm_predictions_test)^2) / sst_test
-r2_lm_train <- 1 - sum((training_data$SalePrice - lm_predictions_train)^2) / sst_train
-
-# Calcular métricas para el árbol de regresión
-rmse_tree_test <- rmse(testing_data$SalePrice, tree_predictions_test)
-mae_tree_test <- mae(testing_data$SalePrice, tree_predictions_test)
-rmse_tree_train <- rmse(training_data$SalePrice, tree_predictions_train)
-r2_tree_test <- 1 - sum((testing_data$SalePrice - tree_predictions_test)^2) / sst_test
-r2_tree_train <- 1 - sum((training_data$SalePrice - tree_predictions_train)^2) / sst_train
+regresion_lineal_rmse <- 38687.16
+regresion_lineal_r2 <- 0.7154753
 ```
 
-```{r Comparacion de modelos regresion}
-# Tabla comparativa
-comparison_df <- data.frame(
-  Modelo = c("Naive Bayes", "Regresión Lineal", "Árbol de Regresión"),
-  RMSE_Train = c(rmse_nb_train, rmse_lm_train, rmse_tree_train),
-  RMSE_Test = c(rmse_nb_test, rmse_lm_test, rmse_tree_test),
-  MAE_Test = c(mae_nb_test, mae_lm_test, mae_tree_test),
-  R2_Train = c(r2_nb_train, r2_lm_train, r2_tree_train),
-  R2_Test = c(r2_nb_test, r2_lm_test, r2_tree_test),
-  Sobreajuste = c(rmse_nb_test - rmse_nb_train, rmse_lm_test - rmse_lm_train, rmse_tree_test - rmse_tree_train),
-  Tiempo = c(time_nb, time_lm, time_tree)
-)
+# Modelo de clasificación
 
-print(comparison_df)
+## Creación del modelo de clasificación
 
-# Gráficos comparativos
-par(mfrow=c(2,2))
-
-# RMSE de prueba
-barplot(comparison_df$RMSE_Test, names.arg = comparison_df$Modelo, 
-        main = "RMSE (conjunto de prueba)",
-        col = "skyblue", border = "blue",
-        ylab = "RMSE")
-
-# R² de prueba
-barplot(comparison_df$R2_Test, names.arg = comparison_df$Modelo, 
-        main = "R² (conjunto de prueba)",
-        col = "lightgreen", border = "darkgreen",
-        ylab = "R²")
-
-# Sobreajuste (diferencia entre RMSE test y train)
-barplot(comparison_df$Sobreajuste, names.arg = comparison_df$Modelo, 
-        main = "Sobreajuste (RMSE Test - RMSE Train)",
-        col = "salmon", border = "red",
-        ylab = "Diferencia")
-
-# Tiempo de ejecución
-barplot(as.numeric(comparison_df$Tiempo), names.arg = comparison_df$Modelo, 
-        main = "Tiempo de entrenamiento",
-        col = "plum", border = "purple",
-        ylab = "Segundos")
-
-par(mfrow=c(1,1))
-
-# Identificar el mejor modelo
-mejor_modelo <- comparison_df$Modelo[which.min(comparison_df$RMSE_Test)]
-cat("El mejor modelo según RMSE de prueba es:", mejor_modelo, "\n")
-mejor_r2 <- comparison_df$Modelo[which.max(comparison_df$R2_Test)]
-cat("El mejor modelo según R² de prueba es:", mejor_r2, "\n")
-menos_sobreajuste <- comparison_df$Modelo[which.min(abs(comparison_df$Sobreajuste))]
-cat("El modelo con menos sobreajuste es:", menos_sobreajuste, "\n")
+```{r}
+new_train <- training_data %>% select(-SalePrice)
+modelo_clasificacion <- naiveBayes(Category ~ ., data = new_train)
+new_testing <- test_data %>% select(-SalePrice)
+predicciones_clasificacion <- predict(modelo_clasificacion, newdata = test_data[, -1])
 ```
 
-### Comparación de modelos de regresión:
+## Evaluación del modelo de clasificación
 
-En la comparación de los modelos, observamos que la Regresión Lineal es el mejor modelo para predecir los precios de las viviendas, ya que presenta el menor RMSE en prueba (34,154.19) y el mayor R² en prueba (0.7617), lo que indica una mejor capacidad de ajuste a los datos. Por otro lado, el Árbol de Regresión tiene un RMSE de prueba de 40,175.54 y un R² de 0.6703, mostrando un desempeño inferior a la regresión lineal pero aún mejor que Naive Bayes. El modelo de Naive Bayes obtiene el peor desempeño con un RMSE de prueba de 66,240.82 y un R² de 0.1037, lo que indica que no logra captar bien la relación entre las variables y el precio. Sin embargo, en términos de sobreajuste, Naive Bayes es el modelo más estable, con una diferencia mínima entre el RMSE de entrenamiento y prueba (63.38), mientras que la regresión lineal presenta una diferencia negativa significativa (-6,858.85), lo que sugiere que su rendimiento puede variar dependiendo de los datos de prueba. En cuanto al tiempo de ejecución, todos los modelos son rápidos, con la regresión lineal siendo la más eficiente (0.0024 s), seguida de Naive Bayes (0.0031 s) y el árbol de regresión siendo el más lento (0.0069 s). En conclusión, la Regresión Lineal es el modelo más efectivo en predicción, mientras que Naive Bayes es el más estable en términos de generalización, pero con un desempeño muy limitado.
+```{r}
+conf <- confusionMatrix(predicciones_clasificacion, test_data$Category)
+conf
+```
+
+La matriz deconfusión muestra que el modelo de clasificación tuvo un accuracy del 75%. El modelo es bastante preciso pues acierta el 75% de las veces. Sin embargo este modelo no es tan bueno clasificando casas medianas pues en esta clase solamente acertó el 69% de las ocasiones. El valor Kappa fue de 0.5738, nos indica que hay un acuerdo moderado entre los valores reales y las predicciones por lo que el modelo puede mejorarse. En conclusión este modelo predice bien en la mayoría de las ocasiones pero puede mejorarse, además de eso tiene problemas en identificar debidamente casas baratas.
