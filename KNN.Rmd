@@ -5,6 +5,10 @@ date: "2025-03-20"
 output: html_document
 ---
 
+## Repositorio (revisar branch KNN)
+
+https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+
 ```{r}
 # Chunk para librerias
 library(tidyverse)
@@ -198,7 +202,13 @@ ggplot(data.frame(Real = y_test, Predicho = test_pred_knn), aes(x = Real, y = Pr
        x = "Precio real",
        y = "Precio predicho") +
   theme_minimal()
+```
 
+## Interpretación de la gráfica
+
+En la gráfica de Valores reales vs predichos se observa que la mayoría de puntos son cercanos a la línea de identidad, indicando que el modelo captura o tiene una predicción bastante acertada a la tendencia general de los precios. Pero también existe un poco de dispersión a medida que el precio aumenta, por lo que el modelo es menos preciso en valores más altos.
+
+```{r Paso 2 - grafica 2}
 residuos <- y_test - test_pred_knn
 
 ggplot(data.frame(Predicho = test_pred_knn, Residuo = residuos), aes(x = Predicho, y = Residuo)) +
@@ -208,7 +218,13 @@ ggplot(data.frame(Predicho = test_pred_knn, Residuo = residuos), aes(x = Predich
        x = "Precio predicho",
        y = "Residuo") +
   theme_minimal()
+```
 
+## Interpretación de la gráfica
+
+Para la gráfica de residuos vs valores predichos se observa una conducta similar a la gráfica anterior. Puesto que existe una ligera acumulación de residuos negativos en precios altos, por lo que se podría decir que se confirma que el modelo planteado está subestimando los valores más caros.
+
+```{r Paso 2 - grafica 3}
 ggplot(data.frame(Residuo = residuos), aes(x = Residuo)) +
   geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
   labs(title = "Distribución de residuos - Modelo KNN",
@@ -216,6 +232,12 @@ ggplot(data.frame(Residuo = residuos), aes(x = Residuo)) +
        y = "Frecuencia") +
   theme_minimal()
 ```
+
+## Interpretación de la gráfica
+
+Para la distribución de los residuos, se observa en la gráfica que el histograma es bastante simétrico, incluso se puede observar claramente que tiene forma de campana, lo cual indica una distribución normal de los errores.
+
+Además, la mayoría de los errores del modelo KNN se concentran cerca del cero, lo que indica que tiene un rendimiento aceptable, considerando lo anteriormente planteado con los valores caros.
 
 ```{r Paso 3 - hacelo Pedro}
 
