@@ -305,6 +305,15 @@ ggplot(knn_class_model) +
 
 print(paste("El mejor valor de k para clasificación es:", knn_class_model$bestTune$k))
 
+```
+
+## Interpretación de la gráfica
+
+La gráfica muestra cómo la precisión alcanza su punto máximo alrededor de k=6k=6, con un valor cercano a 0.765. A partir de ese punto, la precisión comienza a disminuir de manera progresiva a medida que se incrementa kk, lo que indica que valores más altos provocan un subajuste, ya que el modelo se vuelve demasiado general y pierde capacidad de capturar patrones relevantes en los datos. Por otro lado, valores de kk demasiado bajos pueden llevar al sobreajuste, haciendo que el modelo sea muy sensible al ruido en los datos de entrenamiento.
+
+En este caso particular, el mejor desempeño se alcanza con k=5, lo cual sugiere que ese es el valor óptimo para el modelo KNN.
+
+```{r Paso 4 - parte 2}
 best_k_class <- knn_class_model$bestTune$k
 
 train_pred_class <- predict(knn_class_model, X_train_scaled)

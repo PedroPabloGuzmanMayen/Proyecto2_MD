@@ -3,24 +3,24 @@
     "path": "~/KNN.Rmd",
     "project_path": null,
     "type": "r_markdown",
-    "hash": "2213822070",
+    "hash": "2967983976",
     "contents": "",
-    "dirty": false,
+    "dirty": true,
     "created": 1742600782950.0,
     "source_on_save": false,
     "relative_order": 1,
     "properties": {
         "source_window_id": "",
         "Source": "Source",
-        "cursorPosition": "9,57",
-        "scrollLine": "0"
+        "cursorPosition": "313,125",
+        "scrollLine": "297"
     },
     "folds": "",
     "lastKnownWriteTime": 1742614303,
     "encoding": "UTF-8",
     "collab_server": "",
     "source_window": "",
-    "last_content_update": 1742614303680,
+    "last_content_update": 1742615895663,
     "read_only": false,
     "read_only_alternatives": []
 }
