@@ -11,7 +11,7 @@ library(tidyverse)
 library(caret)
 library(FNN)
 library(class)
-
+library(MLmetrics)
 ```
 
 
@@ -58,7 +58,7 @@ for(var in categorical_vars) {
   test[[var]] <- factor(test[[var]], levels = all_levels)
 }
 
-print("Valores NA en el conjunto de prueba (después de procesar):")
+print("Valores NA en el conjunto de prueba :")
 na_test_after <- sapply(test[, c(numeric_vars, categorical_vars)], function(x) sum(is.na(x)))
 print(na_test_after)
 
@@ -160,39 +160,29 @@ if(sum(is.na(X_test_scaled)) == 0) {
     print(head(test_pred_knn, 20))
   }
 } else {
-  print("No se pueden hacer predicciones porque hay NAs en X_test_scaled")
+  print("Error en X_test_scaled")
 }
 ```
 
 ```{r Paso 2}
-# Evaluación del modelo KNN
-# Asumimos que las variables del chunk anterior están disponibles
-
-# Predicciones en el conjunto de entrenamiento
 train_pred_knn <- predict(knn_final, X_train_scaled)
 
-# Cálculo de métricas en el conjunto de entrenamiento
 train_rmse_knn <- sqrt(mean((train_pred_knn - y_train)^2))
 train_mae_knn <- mean(abs(train_pred_knn - y_train))
 train_r2_knn <- 1 - sum((y_train - train_pred_knn)^2) / sum((y_train - mean(y_train))^2)
 
-# Para el conjunto de prueba, verificamos si tenemos los valores reales
-# Si no hay variable y_test definida, la creamos si SalePrice está disponible
 if(!exists("y_test") && "SalePrice" %in% colnames(test)) {
   y_test <- test$SalePrice
 } else if(!exists("y_test")) {
-  # Si no tenemos los valores reales, creamos un mensaje de aviso
   print("ADVERTENCIA: No se encontraron valores reales para el conjunto de prueba (y_test).")
   print("Se crearán métricas simuladas solo para que el código funcione.")
   y_test <- test_pred_knn * rnorm(length(test_pred_knn), mean = 1, sd = 0.1)
 }
 
-# Cálculo de métricas en el conjunto de prueba
 test_rmse_knn <- sqrt(mean((test_pred_knn - y_test)^2))
 test_mae_knn <- mean(abs(test_pred_knn - y_test))
 test_r2_knn <- 1 - sum((y_test - test_pred_knn)^2) / sum((y_test - mean(y_test))^2)
 
-# Tabla de resultados
 knn_reg_results <- data.frame(
   Conjunto = c("Entrenamiento", "Prueba"),
   RMSE = c(train_rmse_knn, test_rmse_knn),
@@ -201,7 +191,6 @@ knn_reg_results <- data.frame(
 )
 print(knn_reg_results)
 
-# Gráfico de valores reales vs. predichos
 ggplot(data.frame(Real = y_test, Predicho = test_pred_knn), aes(x = Real, y = Predicho)) +
   geom_point(alpha = 0.5) +
   geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
@@ -210,10 +199,8 @@ ggplot(data.frame(Real = y_test, Predicho = test_pred_knn), aes(x = Real, y = Pr
        y = "Precio predicho") +
   theme_minimal()
 
-# Análisis de residuos
 residuos <- y_test - test_pred_knn
 
-# Gráfico de residuos vs. valores predichos
 ggplot(data.frame(Predicho = test_pred_knn, Residuo = residuos), aes(x = Predicho, y = Residuo)) +
   geom_point(alpha = 0.5) +
   geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
@@ -222,13 +209,101 @@ ggplot(data.frame(Predicho = test_pred_knn, Residuo = residuos), aes(x = Predich
        y = "Residuo") +
   theme_minimal()
 
-# Histograma de residuos
 ggplot(data.frame(Residuo = residuos), aes(x = Residuo)) +
   geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
   labs(title = "Distribución de residuos - Modelo KNN",
        x = "Residuo",
        y = "Frecuencia") +
   theme_minimal()
+```
+
+```{r Paso 3 - hacelo Pedro}
+
+```
+
+```{r Paso 4}
+if("SalePrice" %in% colnames(test)) {
+  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
+  train$PriceCategory <- cut(train$SalePrice, 
+                            breaks = breaks,
+                            labels = c("Barata", "Media", "Cara"),
+                            include.lowest = TRUE)
+  
+  test$PriceCategory <- cut(test$SalePrice, 
+                           breaks = breaks,
+                           labels = c("Barata", "Media", "Cara"),
+                           include.lowest = TRUE)
+  
+  y_train_cat <- train$PriceCategory
+  y_test_cat <- test$PriceCategory
+  
+} else {
+  print("ADVERTENCIA: No se encontró la variable SalePrice en el conjunto de prueba.")
+  print("Se realizará la clasificación solo con el conjunto de entrenamiento.")
+  
+  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
+  train$PriceCategory <- cut(train$SalePrice, 
+                            breaks = breaks,
+                            labels = c("Barata", "Media", "Cara"),
+                            include.lowest = TRUE)
+  
+  y_train_cat <- train$PriceCategory
+  y_test_cat <- factor(rep(NA, nrow(test)), levels = levels(y_train_cat))
+}
+
+if(sum(is.na(X_train_scaled)) > 0) {
+  print("Advertencia: Hay valores NA en X_train_scaled")
+  X_train_scaled[is.na(X_train_scaled)] <- 0
+}
+
+if(sum(is.na(X_test_scaled)) > 0) {
+  print("Advertencia: Hay valores NA en X_test_scaled")
+  X_test_scaled[is.na(X_test_scaled)] <- 0
+}
+
+set.seed(123)
+train_control_class <- trainControl(method = "cv", 
+                                   number = 5,
+                                   classProbs = TRUE, 
+                                   summaryFunction = multiClassSummary)
+knn_class_model <- train(
+  x = X_train_scaled,
+  y = y_train_cat,
+  method = "knn",
+  tuneGrid = data.frame(k = seq(1, 30, by = 2)),
+  trControl = train_control_class,
+  metric = "Accuracy"
+)
+
+ggplot(knn_class_model) +
+  labs(title = "Precisión según el número de vecinos (k)",
+       x = "Número de vecinos (k)",
+       y = "Precisión") +
+  theme_minimal()
+
+print(paste("El mejor valor de k para clasificación es:", knn_class_model$bestTune$k))
+
+best_k_class <- knn_class_model$bestTune$k
+
+train_pred_class <- predict(knn_class_model, X_train_scaled)
+if("SalePrice" %in% colnames(test)) {
+  test_pred_class <- predict(knn_class_model, X_test_scaled)
+  
+  conf_matrix <- confusionMatrix(test_pred_class, y_test_cat)
+  print(conf_matrix)
+  
+  conf_data <- as.data.frame(conf_matrix$table)
+  ggplot(conf_data, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), color = "white", size = 4) +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = "Matriz de confusión - Modelo KNN de clasificación",
+         x = "Clase real", 
+         y = "Clase predicha") +
+    theme_minimal()
+} else {
+  print("No se pueden hacer predicciones en el conjunto de prueba porque no tiene la variable SalePrice")
+}
 ```
 
 

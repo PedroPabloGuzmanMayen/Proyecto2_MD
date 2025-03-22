@@ -11,7 +11,7 @@ library(tidyverse)
 library(caret)
 library(FNN)
 library(class)
-
+library(MLmetrics)
 ```
 
 
@@ -58,7 +58,7 @@ for(var in categorical_vars) {
   test[[var]] <- factor(test[[var]], levels = all_levels)
 }
 
-print("Valores NA en el conjunto de prueba (después de procesar):")
+print("Valores NA en el conjunto de prueba :")
 na_test_after <- sapply(test[, c(numeric_vars, categorical_vars)], function(x) sum(is.na(x)))
 print(na_test_after)
 
@@ -160,7 +160,7 @@ if(sum(is.na(X_test_scaled)) == 0) {
     print(head(test_pred_knn, 20))
   }
 } else {
-  print("No se pueden hacer predicciones porque hay NAs en X_test_scaled")
+  print("Error en X_test_scaled")
 }
 ```
 
@@ -215,6 +215,95 @@ ggplot(data.frame(Residuo = residuos), aes(x = Residuo)) +
        x = "Residuo",
        y = "Frecuencia") +
   theme_minimal()
+```
+
+```{r Paso 3 - hacelo Pedro}
+
+```
+
+```{r Paso 4}
+if("SalePrice" %in% colnames(test)) {
+  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
+  train$PriceCategory <- cut(train$SalePrice, 
+                            breaks = breaks,
+                            labels = c("Barata", "Media", "Cara"),
+                            include.lowest = TRUE)
+  
+  test$PriceCategory <- cut(test$SalePrice, 
+                           breaks = breaks,
+                           labels = c("Barata", "Media", "Cara"),
+                           include.lowest = TRUE)
+  
+  y_train_cat <- train$PriceCategory
+  y_test_cat <- test$PriceCategory
+  
+} else {
+  print("ADVERTENCIA: No se encontró la variable SalePrice en el conjunto de prueba.")
+  print("Se realizará la clasificación solo con el conjunto de entrenamiento.")
+  
+  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
+  train$PriceCategory <- cut(train$SalePrice, 
+                            breaks = breaks,
+                            labels = c("Barata", "Media", "Cara"),
+                            include.lowest = TRUE)
+  
+  y_train_cat <- train$PriceCategory
+  y_test_cat <- factor(rep(NA, nrow(test)), levels = levels(y_train_cat))
+}
+
+if(sum(is.na(X_train_scaled)) > 0) {
+  print("Advertencia: Hay valores NA en X_train_scaled")
+  X_train_scaled[is.na(X_train_scaled)] <- 0
+}
+
+if(sum(is.na(X_test_scaled)) > 0) {
+  print("Advertencia: Hay valores NA en X_test_scaled")
+  X_test_scaled[is.na(X_test_scaled)] <- 0
+}
+
+set.seed(123)
+train_control_class <- trainControl(method = "cv", 
+                                   number = 5,
+                                   classProbs = TRUE, 
+                                   summaryFunction = multiClassSummary)
+knn_class_model <- train(
+  x = X_train_scaled,
+  y = y_train_cat,
+  method = "knn",
+  tuneGrid = data.frame(k = seq(1, 30, by = 2)),
+  trControl = train_control_class,
+  metric = "Accuracy"
+)
+
+ggplot(knn_class_model) +
+  labs(title = "Precisión según el número de vecinos (k)",
+       x = "Número de vecinos (k)",
+       y = "Precisión") +
+  theme_minimal()
+
+print(paste("El mejor valor de k para clasificación es:", knn_class_model$bestTune$k))
+
+best_k_class <- knn_class_model$bestTune$k
+
+train_pred_class <- predict(knn_class_model, X_train_scaled)
+if("SalePrice" %in% colnames(test)) {
+  test_pred_class <- predict(knn_class_model, X_test_scaled)
+  
+  conf_matrix <- confusionMatrix(test_pred_class, y_test_cat)
+  print(conf_matrix)
+  
+  conf_data <- as.data.frame(conf_matrix$table)
+  ggplot(conf_data, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), color = "white", size = 4) +
+    scale_fill_gradient(low = "blue", high = "red") +
+    labs(title = "Matriz de confusión - Modelo KNN de clasificación",
+         x = "Clase real", 
+         y = "Clase predicha") +
+    theme_minimal()
+} else {
+  print("No se pueden hacer predicciones en el conjunto de prueba porque no tiene la variable SalePrice")
+}
 ```
 
 
