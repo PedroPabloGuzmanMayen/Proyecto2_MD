@@ -9,6 +9,10 @@ output: html_document
 
 https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
 
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
 ```{r}
 # Chunk para librerias
 library(tidyverse)
@@ -18,10 +22,148 @@ library(class)
 library(MLmetrics)
 ```
 
-# Paso 1
-```{r Paso 1}
+# Algoritmo KNN
+
+
+# Modelo de regresión
+
+Para empezar, se generará un modelo de regresión lineal con el algoritmo KNN para evaluar si es eficiente a la hora de realizar predicciones sobre los precios de venta de las viviendas. Se usara un k_value inicial igual a la raíz cuadrada del número de filas del conjunto de entrenamiento. 
+
+## Modelo incial
+
+```{r}
 train <- read.csv("train.csv")
-test <- read.csv("test.csv")
+
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(train),nrow(train) * porciento)
+train <- train[corte, ]
+test <- train[-corte, ]
+
+numeric_vars <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", 
+                 "FullBath", "YearBuilt", "YearRemodAdd", "Fireplaces",
+                 "BsmtFinSF1", "LotArea", "MasVnrArea", "WoodDeckSF")
+
+categorical_vars <- c("Neighborhood", "ExterQual", "KitchenQual", "BsmtQual", 
+                     "GarageFinish", "Foundation", "MSZoning", "CentralAir")
+
+print("Valores NA en el conjunto de prueba (antes de procesar):")
+na_test_before <- sapply(test[, c(numeric_vars, categorical_vars)], function(x) sum(is.na(x)))
+print(na_test_before)
+
+for(var in numeric_vars) {
+  if(sum(is.na(train[[var]])) > 0) {
+    median_value <- median(train[[var]], na.rm = TRUE)
+    train[[var]][is.na(train[[var]])] <- median_value
+  }
+  
+  if(sum(is.na(test[[var]])) > 0) {
+    median_value <- median(train[[var]], na.rm = TRUE)  # Usamos la mediana del conjunto de entrenamiento
+    test[[var]][is.na(test[[var]])] <- median_value
+  }
+}
+
+for(var in categorical_vars) {
+  if(sum(is.na(train[[var]])) > 0) {
+    mode_value <- names(sort(table(train[[var]]), decreasing = TRUE))[1]
+    train[[var]][is.na(train[[var]])] <- mode_value
+  }
+  
+  if(sum(is.na(test[[var]])) > 0) {
+    mode_value <- names(sort(table(train[[var]]), decreasing = TRUE))[1]  # Usamos el modo del conjunto de entrenamiento
+    test[[var]][is.na(test[[var]])] <- mode_value
+  }
+  
+  all_levels <- unique(c(levels(factor(train[[var]])), levels(factor(test[[var]]))))
+  train[[var]] <- factor(train[[var]], levels = all_levels)
+  test[[var]] <- factor(test[[var]], levels = all_levels)
+}
+
+print("Valores NA en el conjunto de prueba :")
+na_test_after <- sapply(test[, c(numeric_vars, categorical_vars)], function(x) sum(is.na(x)))
+print(na_test_after)
+
+predictors_num <- train[, numeric_vars]
+predictors_cat <- train[, categorical_vars]
+
+dummies <- dummyVars(~ ., data = predictors_cat, fullRank = TRUE)
+predictors_cat_encoded <- predict(dummies, predictors_cat)
+
+X_train <- cbind(predictors_num, predictors_cat_encoded)
+y_train <- train$SalePrice
+
+preproc <- preProcess(X_train, method = c("center", "scale"))
+X_train_scaled <- predict(preproc, X_train)
+
+predictors_num_test <- test[, numeric_vars]
+predictors_cat_test <- test[, categorical_vars]
+
+predictors_cat_test_encoded <- predict(dummies, predictors_cat_test)
+
+X_test <- cbind(predictors_num_test, predictors_cat_test_encoded)
+
+train_cols <- colnames(X_train)
+test_cols <- colnames(X_test)
+
+missing_in_test <- setdiff(train_cols, test_cols)
+missing_in_train <- setdiff(test_cols, train_cols)
+
+if(length(missing_in_test) > 0) {
+  print(paste("Columnas faltantes en test:", paste(missing_in_test, collapse=", ")))
+  for(col in missing_in_test) {
+    X_test[, col] <- 0
+  }
+}
+
+if(length(missing_in_train) > 0) {
+  print(paste("Columnas en test que no están en train:", paste(missing_in_train, collapse=", ")))
+  X_test <- X_test[, !(colnames(X_test) %in% missing_in_train)]
+}
+
+X_test <- X_test[, colnames(X_train)]
+
+X_test_scaled <- predict(preproc, X_test)
+
+na_count_test <- sum(is.na(X_test_scaled))
+print(paste("Número de NAs en X_test_scaled:", na_count_test))
+
+if(na_count_test > 0) {
+  na_cols <- colnames(X_test_scaled)[colSums(is.na(X_test_scaled)) > 0]
+  print("Columnas con valores NA:")
+  print(na_cols)
+  
+  for(col in na_cols) {
+    X_test_scaled[is.na(X_test_scaled[, col]), col] <- mean(X_train_scaled[, col], na.rm = TRUE)
+  }
+}
+
+k_value <- round(sqrt(nrow(train)),0)
+
+knn_model <- train(
+  x = X_train_scaled,
+  y = y_train,
+  method = "knn",
+  tuneGrid = data.frame(k = k_value),
+  metric = "RMSE"
+)
+
+print(knn_model)
+```
+En este modelo inicial se obtuvo un RMSE de 49121.32 y un R2 de 0.68. El RMSE es significativamente mejor que el obtenido en el modelo NaiveBayes pues en dicho modelo el error fue de más de 200,000 dólares. Sin embargo, este modelo es peor que el del árbol de clasificación (37033.09) y el de regresión lineal (38687.16) . Además de eso, el r2 es bastante mejorable. Por esa razón se tuneará el parámetro k y se usará un modelo de validación cruzada para determinar si hay mejores resultados. 
+
+## Modelo con tuneo del parámetro k
+
+Se probaarán distintos valores de k para determinar  
+```{r Paso 1}
+
+
+train <- read.csv("train.csv")
+
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(train),nrow(train) * porciento)
+train <- train[corte, ]
+test <- train[-corte, ]
 
 numeric_vars <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", 
                  "FullBath", "YearBuilt", "YearRemodAdd", "Fireplaces",
@@ -122,7 +264,7 @@ if(na_count_test > 0) {
 
 k_values <- seq(1, 30, by = 2)
 
-set.seed(123)
+set.seed(245)
 train_control <- trainControl(method = "cv", number = 5)
 knn_model <- train(
   x = X_train_scaled,
@@ -142,355 +284,96 @@ ggplot(knn_model) +
 print(paste("El mejor valor de k es:", knn_model$bestTune$k))
 ```
 
-## Interpretación del gráfico
+El gráfico de comparación generado muestra que mientras más crece el valor de k, más grande es el RMSE del modelo de regresión, el RMSE más bajo se obtuvo con k = 5, por lo que se concluye que el mejor valor de k posible para este modelo es k=5. Además de eso, este modelo presenta un RMSE (42000) bastante similar al obtenido con los modelos de regresión lineal (38687.16) y el árbol de regresión (37033.09) y bastante mejor que el que fue generado usando Naive Bayes (210035.8). En base a estsos resultados, se puede concluir que este modelo es bastante adecuado pues tiene resultados similares a los mejores modelos anteriormente realizados. 
 
-Se observa claramente que el error sigue una tendencia en forma de U, comenzando con un valor alto cuando k=1 (aproximadamente 43,000), descendiendo rápidamente hasta alcanzar su punto mínimo cuando k=5 (cerca de 39,000), y luego aumentando progresivamente a medida que el valor de k se incrementa hasta 30, donde el RMSE supera los 44,000. Esta tendencia indica que un valor de k demasiado pequeño provoca sobreajuste (overfitting) al ser muy sensible a datos atípicos, mientras que valores de k demasiado grandes generan subajuste (underfitting) al perder capacidad para capturar patrones locales importantes. El resultado óptimo se obtiene con k=5, como confirma la salida mostrada debajo del gráfico, lo que representa el mejor equilibrio entre sesgo y varianza para este conjunto de datos específico.
+# Modelo de clasificación
+
+Para el modelo inicial se seleccionara como k el valor de la raíz cuadrada del número de filas del conjunto de entrenamiento 
 
 ```{r}
-best_k <- knn_model$bestTune$k
-knn_final <- knnreg(x = X_train_scaled, y = y_train, k = best_k)
+#Crear la variable categoría
 
-print(paste("NAs en X_test_scaled después de imputación:", sum(is.na(X_test_scaled))))
+mean_price <- mean(train$SalePrice, na.rm = TRUE)
+sd_price <- sd(train$SalePrice, na.rm = TRUE)
+lower_limit <- median(train$SalePrice)
+upper_limit <- mad(train$SalePrice)
 
-if(sum(is.na(X_test_scaled)) == 0) {
-  test_pred_knn <- predict(knn_final, X_test_scaled)
-  
-  if("SalePrice" %in% colnames(test)) {
-    y_test <- test$SalePrice
-    rmse <- sqrt(mean((y_test - test_pred_knn)^2))
-    print(paste("RMSE en el conjunto de prueba:", rmse))
-    
-    pred_vs_actual <- data.frame(
-      Real = y_test[1:20],
-      Predicho = test_pred_knn[1:20]
-    )
-    print(pred_vs_actual)
-  } else {
-    print("Primeras 20 predicciones:")
-    print(head(test_pred_knn, 20))
-  }
-} else {
-  print("Error en X_test_scaled")
-}
-```
+train$Category <- ifelse(training_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                                 ifelse(training_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
 
-
-# Paso 2
-
-```{r Paso 2}
-train_pred_knn <- predict(knn_final, X_train_scaled)
-
-train_rmse_knn <- sqrt(mean((train_pred_knn - y_train)^2))
-train_mae_knn <- mean(abs(train_pred_knn - y_train))
-train_r2_knn <- 1 - sum((y_train - train_pred_knn)^2) / sum((y_train - mean(y_train))^2)
-
-if(!exists("y_test") && "SalePrice" %in% colnames(test)) {
-  y_test <- test$SalePrice
-} else if(!exists("y_test")) {
-  print("ADVERTENCIA: No se encontraron valores reales para el conjunto de prueba (y_test).")
-  print("Se crearán métricas simuladas solo para que el código funcione.")
-  y_test <- test_pred_knn * rnorm(length(test_pred_knn), mean = 1, sd = 0.1)
-}
-
-test_rmse_knn <- sqrt(mean((test_pred_knn - y_test)^2))
-test_mae_knn <- mean(abs(test_pred_knn - y_test))
-test_r2_knn <- 1 - sum((y_test - test_pred_knn)^2) / sum((y_test - mean(y_test))^2)
-
-knn_reg_results <- data.frame(
-  Conjunto = c("Entrenamiento", "Prueba"),
-  RMSE = c(train_rmse_knn, test_rmse_knn),
-  MAE = c(train_mae_knn, test_mae_knn),
-  R2 = c(train_r2_knn, test_r2_knn)
-)
-print(knn_reg_results)
-
-ggplot(data.frame(Real = y_test, Predicho = test_pred_knn), aes(x = Real, y = Predicho)) +
-  geom_point(alpha = 0.5) +
-  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
-  labs(title = "Valores reales vs. predichos - Modelo KNN",
-       x = "Precio real",
-       y = "Precio predicho") +
-  theme_minimal()
-```
-
-## Interpretación de la gráfica
-
-En la gráfica de Valores reales vs predichos se observa que la mayoría de puntos son cercanos a la línea de identidad, indicando que el modelo captura o tiene una predicción bastante acertada a la tendencia general de los precios. Pero también existe un poco de dispersión a medida que el precio aumenta, por lo que el modelo es menos preciso en valores más altos.
-
-```{r Paso 2 - grafica 2}
-residuos <- y_test - test_pred_knn
-
-ggplot(data.frame(Predicho = test_pred_knn, Residuo = residuos), aes(x = Predicho, y = Residuo)) +
-  geom_point(alpha = 0.5) +
-  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
-  labs(title = "Residuos vs. valores predichos - Modelo KNN",
-       x = "Precio predicho",
-       y = "Residuo") +
-  theme_minimal()
-```
-
-## Interpretación de la gráfica
-
-Para la gráfica de residuos vs valores predichos se observa una conducta similar a la gráfica anterior. Puesto que existe una ligera acumulación de residuos negativos en precios altos, por lo que se podría decir que se confirma que el modelo planteado está subestimando los valores más caros.
-
-```{r Paso 2 - grafica 3}
-ggplot(data.frame(Residuo = residuos), aes(x = Residuo)) +
-  geom_histogram(bins = 30, fill = "steelblue", alpha = 0.7) +
-  labs(title = "Distribución de residuos - Modelo KNN",
-       x = "Residuo",
-       y = "Frecuencia") +
-  theme_minimal()
-```
-
-## Interpretación de la gráfica
-
-Para la distribución de los residuos, se observa en la gráfica que el histograma es bastante simétrico, incluso se puede observar claramente que tiene forma de campana, lo cual indica una distribución normal de los errores.
-
-Además, la mayoría de los errores del modelo KNN se concentran cerca del cero, lo que indica que tiene un rendimiento aceptable, considerando lo anteriormente planteado con los valores caros.
-
-# Paso 3
-
-```{r Paso 3}
-lm_metrics <- data.frame(
-  Modelo = "Regresión Lineal",
-  RMSE = 38687.16,
-  MAE = NA,
-  R2 = 0.7154753
-)
-
-tree_metrics <- data.frame(
-  Modelo = "Árbol de Decisión",
-  RMSE = 37033.09,
-  MAE = NA,
-  R2 = 0.809198
-)
-
-tuned_tree_metrics <- data.frame(
-  Modelo = "Árbol (prof=4)",
-  RMSE = 30619.02,
-  MAE = NA,
-  R2 = 0.8513468
-)
-
-rf_metrics <- data.frame(
-  Modelo = "Random Forest",
-  RMSE = 24800,
-  MAE = 16500,
-  R2 = 0.92
-)
-
-nb_metrics <- data.frame(
-  Modelo = "Naive Bayes",
-  RMSE = 42300,
-  MAE = 31200,
-  R2 = 0.71
-)
-
-knn_metrics <- data.frame(
-  Modelo = "KNN",
-  RMSE = test_rmse_knn,
-  MAE = test_mae_knn,
-  R2 = test_r2_knn
-)
-
-all_reg_models <- rbind(lm_metrics, tree_metrics, tuned_tree_metrics, rf_metrics, nb_metrics, knn_metrics)
-
-all_reg_models <- all_reg_models[order(all_reg_models$RMSE),]
-
-print(all_reg_models)
-
-ggplot(all_reg_models, aes(x = reorder(Modelo, -RMSE), y = RMSE, fill = Modelo)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Comparación de RMSE entre modelos",
-       x = "Modelo",
-       y = "RMSE") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-## Resultados de la comparación RMSE
-
-En términos de error cuadrático medio, el modelo KNN fue el que obtuvo el mejor desempeño, con un valor de 18,966.43, viendo la tabla, lo que indica una menor diferencia promedio entre los valores predichos y los reales. Le sigue el modelo Random Forest con un RMSE de 24,800.00, lo cual también representa un buen nivel de precisión. Con el gráfico, también se puede apreciar que el desempeño va disminuyendo, el modelo de Árbol de Decisión con profundidad ajustada (prof=4) obtuvo 30,619.02, el Árbol de Decisión simple registró 37,033.09, y la Regresión Lineal mostró un RMSE de 38,687.16. El modelo con el peor desempeño en este aspecto fue Naive Bayes, con un RMSE de 42,300.00, lo que refleja una mayor dispersión en sus predicciones.
-
-
-```{r Paso 3 - comparacion 2}
-ggplot(all_reg_models, aes(x = reorder(Modelo, R2), y = R2, fill = Modelo)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Comparación de R² entre modelos",
-       x = "Modelo",
-       y = "R²") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+test$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                             ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
 
 ```
 
-## Resultados de la comparación R²
 
-Respecto al coeficiente de determinación R², el modelo KNN también lidera con un valor de 0.9283, indicando que explica aproximadamente el 93% de la varianza en los datos de salida. Muy cerca se encuentra Random Forest con un R² de 0.92, lo que reafirma su capacidad predictiva. En tercer lugar se posiciona el Árbol ajustado (prof=4) con un R² de 0.8513, seguido por el Árbol de Decisión básico con 0.8092. La Regresión Lineal queda bastante atrás con un valor de 0.7155, y finalmente Naive Bayes presenta el menor R² con 0.71, lo que indica que explica menos del 72% de la varianza total.
+```{r}
+set.seed(245)
 
-## Conclusiones sobre la comparación con modelos pasados
+to_train <- train %>% mutate_if(is.factor, as.numeric)
+to_test <- test %>% mutate_if(is.factor, as.numeric)
+y_train <- factor(to_train$Category)
+y_test <- factor(to_test$Category)
+to_test <- to_test %>% select(-Id) %>% select(-SalePrice)
+to_train <- to_train %>% select(-Id) %>% select(-SalePrice)
+x_train <- to_train
+x_test <- to_test
+k <- round(sqrt(nrow(train)),0)
+clas_model <- knn(X_train_scaled, X_test_scaled,y_train,k)
+clas_model2 <- knn(X_train_scaled, X_train_scaled, y_train, k)
+confusionMatrix(clas_model, y_test)
+confusionMatrix(clas_model2, y_train)
 
-El modelo KNN fue el que mejor desempeño mostró tanto en RMSE como en R², superando incluso a modelos más complejos como Random Forest. Aunque Random Forest también logró muy buenos resultados, KNN demostró ser más preciso en sus predicciones y con una mejor capacidad explicativa. Por otro lado, modelos como Regresión Lineal y Naive Bayes tuvieron un desempeño considerablemente menor, lo que los posiciona como opciones menos eficaces para este conjunto de datos. Esto sugiere que, para este problema en particular, los métodos basados en vecinos cercanos y árboles de decisión optimizados ofrecen ventajas significativas frente a técnicas más generales.
+```
+El modelo de clasificación inicial tiene un acuracy de 0.6799, este accuracy es bajo en comparación a los de los otros modelos de clasificación, pues estos regularmente obtenían valores más altos. Por ejemplo, el modelo con NaiveBayes tuvo un accuracy de 0.75 incialmente, el árbol de clasificación obtuvo un 0.88 de accuracy. Otro aspecto que hace que este modelo sea deficiente frente a los anteriores es que solamente acertó correctamente con la predicción de las casas baratas el 10% de las veces, los modelos anteriormente mencionados acertaban más del 40% de las ocasiones en esta clasificación. 
 
-# Paso 4
+Otro aspecto relevante es que el modelo no presenta overfitting, pues obtuvo resultados similares tanto con los datos de prueba como con los de entrenamiento, por lo que se intuye que sabe generalizar de buena forma la información.
 
-```{r Paso 4}
-if("SalePrice" %in% colnames(test)) {
-  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
-  train$PriceCategory <- cut(train$SalePrice, 
-                            breaks = breaks,
-                            labels = c("Barata", "Media", "Cara"),
-                            include.lowest = TRUE)
-  
-  test$PriceCategory <- cut(test$SalePrice, 
-                           breaks = breaks,
-                           labels = c("Barata", "Media", "Cara"),
-                           include.lowest = TRUE)
-  
-  y_train_cat <- train$PriceCategory
-  y_test_cat <- test$PriceCategory
-  
-} else {
-  print("ADVERTENCIA: No se encontró la variable SalePrice en el conjunto de prueba.")
-  print("Se realizará la clasificación solo con el conjunto de entrenamiento.")
-  
-  breaks <- quantile(train$SalePrice, probs = c(0, 0.33, 0.66, 1))
-  train$PriceCategory <- cut(train$SalePrice, 
-                            breaks = breaks,
-                            labels = c("Barata", "Media", "Cara"),
-                            include.lowest = TRUE)
-  
-  y_train_cat <- train$PriceCategory
-  y_test_cat <- factor(rep(NA, nrow(test)), levels = levels(y_train_cat))
-}
+Basado en los resultados, se concluyé que este modelo es bastante deficente en comparación a los anteriores, se hará un tuneo y una validación cruzada del valor k con este modelo para observar si hay una mejora.
 
-if(sum(is.na(X_train_scaled)) > 0) {
-  print("Advertencia: Hay valores NA en X_train_scaled")
-  X_train_scaled[is.na(X_train_scaled)] <- 0
-}
 
-if(sum(is.na(X_test_scaled)) > 0) {
-  print("Advertencia: Hay valores NA en X_test_scaled")
-  X_test_scaled[is.na(X_test_scaled)] <- 0
-}
 
-set.seed(123)
-train_control_class <- trainControl(method = "cv", 
-                                   number = 5,
-                                   classProbs = TRUE, 
-                                   summaryFunction = multiClassSummary)
-knn_class_model <- train(
-  x = X_train_scaled,
-  y = y_train_cat,
-  method = "knn",
-  tuneGrid = data.frame(k = seq(1, 30, by = 2)),
-  trControl = train_control_class,
-  metric = "Accuracy"
+
+## Tuneo de parámetros para el modelo de clasificación
+
+```{r}
+
+k_values <- seq(1, 30) #Se intentará con los valores k del 1 al 30
+train_control <- trainControl(method = "cv", number = 10) 
+cv_model <- train(
+  x = X_train_scaled, 
+  y = y_train, 
+  method = "knn", 
+  trControl = train_control, 
+  tuneGrid = data.frame(k = k_values)  # Probar varios valores de k
 )
 
-ggplot(knn_class_model) +
-  labs(title = "Precisión según el número de vecinos (k)",
-       x = "Número de vecinos (k)",
-       y = "Precisión") +
-  theme_minimal()
+# Ver el mejor valor de k
+print(cv_model)
 
-print(paste("El mejor valor de k para clasificación es:", knn_class_model$bestTune$k))
+# Graficar el rendimiento para cada valor de k
+plot(cv_model)
+
+# Hacer predicciones con el modelo ajustado
+best_k <- cv_model$bestTune$k  # Mejor valor de k
+print(paste("El mejor valor de k es:", best_k))
+
+# Predicciones finales
+final_predictions <- predict(cv_model, newdata = X_test_scaled)
+
+# Evaluar el rendimiento con la matriz de confusión
+confusionMatrix(final_predictions, y_test)
 
 ```
 
-## Interpretación de la gráfica
+Se observa que el mejor valor k posible para el modelo de clasificación es 5, con este valor de k se obtuvo un accuracy de 0.85 y un kappa value de 0.68, mucho mejor que con el modelo anterior. Además de eso, este modelo presente una mejora significativa en sus predicciones pues ahora acierta en el 51% de las veces en la clasificación de casas baratas, incluso mejoró prediciendo casas caras pues ahora acertó un 73% de las veces, en el modelo anterior solamente acertó el 51% de las veces. A pesar de eso, bajo su rendimiento clasificando casas medianas pues ahora acertó el 94% de las veces mientras que en el primer modelo logró acertar en el 96% de las ocasiones. 
+A pesar de la mejora en los resultados, este modelo sigue sin ser mejor que modelos de clasificación generados con otros algoritmos pues el modelo Naive Bayes, a pesar de tener un accuracy menor (0.82), acertaba de mejor forma en la calsificación pues en las 3 variables acertó más del 65% de las ocasiones. El modelo del árbol de clasificación tuvo un accuracy de 0.88 y acertaba en más del 65% de las ocasiones en la calsificación de las tres variables. Además, el modelo random forest tuvo un accuracy de 0.98 y acertó el 100% delas veces en la clasificación de las tres variables. 
 
-La gráfica muestra cómo la precisión alcanza su punto máximo alrededor de k=5, con un valor cercano a 0.765. A partir de ese punto, la precisión comienza a disminuir de manera progresiva a medida que se incrementa kk, lo que indica que valores más altos provocan un subajuste, ya que el modelo se vuelve demasiado general y pierde capacidad de capturar patrones relevantes en los datos. Por otro lado, valores de kk demasiado bajos pueden llevar al sobreajuste, haciendo que el modelo sea muy sensible al ruido en los datos de entrenamiento.
+# Conclusiones 
 
-En este caso particular, el mejor desempeño se alcanza con k=5, lo cual sugiere que ese es el valor óptimo para el modelo KNN.
+En base a los resultados obtenidos en la generación de modelos de clasificación con distintos algoritmos, se concluyé que el mejor algoritmo para predecir el precio de las viviendas es el algoritmo de random forest, pues este obtuvo resulatados casi perfectos y su tiempo de ejecución, a pesar de ser mayor al resto, no tiene diferencia significativa, por lo tanto se concluye que en este caso, este es el mejor algoritmo que puede utilizarse para clasificar el precio de las viviendas. 
 
-```{r Paso 4 - parte 2}
-best_k_class <- knn_class_model$bestTune$k
+En cuánto a la regresión, el modelo con un menor RMSE fue el del árbol de regresión, además de eso este modelo tomaba en cuenta gran parte de las variables para realizar la predicción y tuvo un coeficiente R2 de 0.80, además de eso su tiempo de ejecución es basnate similar al de los demás. Por lo tanto, para la regresión se cincluye que el mejor modelo posible es el árbol de clasificación con 8 niveles, a pesar de eso se sugiere utilizar un modelo de clasificación para hacer predicciones sobre los precios de venta de las viviendas pues en esta clase de modelos se obtienen mejores predicciones. 
 
-train_pred_class <- predict(knn_class_model, X_train_scaled)
-```
 
-# Paso 5
 
-```{r Paso 5}
-test_pred_knn_class <- knn(train = X_train_scaled, 
-                          test = X_test_scaled, 
-                          cl = y_train_cat, 
-                          k = best_k_class)
-
-conf_matrix <- confusionMatrix(test_pred_knn_class, y_test_cat)
-
-conf_data <- as.data.frame(conf_matrix$table)
-colnames(conf_data) <- c("Real", "Predicho", "Frecuencia")
-
-class_metrics <- conf_matrix$byClass
-class_metrics_df <- data.frame(
-  Clase = rownames(class_metrics),
-  Sensibilidad = class_metrics[,"Sensitivity"],
-  Especificidad = class_metrics[,"Specificity"],
-  Precisión = class_metrics[,"Precision"],
-  F1_Score = class_metrics[,"F1"]
-)
-
-global_metrics <- data.frame(
-  Accuracy = conf_matrix$overall["Accuracy"],
-  Kappa = conf_matrix$overall["Kappa"],
-  AccuracyLower = conf_matrix$overall["AccuracyLower"],
-  AccuracyUpper = conf_matrix$overall["AccuracyUpper"]
-)
-print(global_metrics)
-
-tree_class_metrics <- data.frame(
-  Modelo = "Árbol de Decisión",
-  Accuracy = 0.809198,
-  Kappa = 0.67
-)
-
-rf_class_metrics <- data.frame(
-  Modelo = "Random Forest",
-  Accuracy = 0.92,
-  Kappa = 0.77
-)
-
-nb_class_metrics <- data.frame(
-  Modelo = "Naive Bayes",
-  Accuracy = 0.71,
-  Kappa = 0.58
-)
-
-lm_class_metrics <- data.frame(
-  Modelo = "Regresión Lineal",
-  Accuracy = 0.7154753,
-  Kappa = 0.60
-)
-
-tuned_tree_metrics <- data.frame(
-  Modelo = "Árbol (prof=4)",
-  Accuracy = 0.8513468,
-  Kappa = 0.70
-)
-
-knn_acc <- 0.83 
-knn_kap <- 0.75 
-
-knn_class_metrics <- data.frame(
-  Modelo = "KNN",
-  Accuracy = knn_acc,
-  Kappa = knn_kap
-)
-
-all_class_models <- rbind(tree_class_metrics, rf_class_metrics, nb_class_metrics, lm_class_metrics, tuned_tree_metrics, knn_class_metrics)
-all_class_models <- all_class_models[order(-all_class_models$Accuracy),]
-
-ggplot(all_class_models, aes(x = reorder(Modelo, Accuracy), y = Accuracy, fill = Modelo)) +
-  geom_bar(stat = "identity") +
-  labs(title = "Comparación de Accuracy entre modelos de clasificación",
-       x = "Modelo",
-       y = "Accuracy") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
-```
-
-## Analisis de los resultados en Paso 5
-
-Analizando la comparación de modelos, se observa que Random Forest presenta el mejor rendimiento con una exactitud del 92%, siendo claramente superior al resto de modelos evaluados. El Árbol de Decisión optimizado con profundidad 4 ocupa el segundo lugar con un 85.13% de exactitud, lo que representa una mejora significativa respecto al Árbol de Decisión básico (80.92%). El modelo KNN muestra un desempeño relativamente bueno con una exactitud del 83%, posicionándose como la tercera mejor opción entre los modelos evaluados. La Regresión Lineal y Naive Bayes presentan los resultados más modestos, con exactitudes de 71.55% y 71% respectivamente, evidenciando su limitada capacidad para capturar la complejidad de los patrones en los datos comparados con los modelos más avanzados. Estas diferencias en rendimiento sugieren que para este conjunto de datos, los modelos basados en árboles y el enfoque de vecinos cercanos ofrecen una ventaja considerable frente a las técnicas más tradicionales.
