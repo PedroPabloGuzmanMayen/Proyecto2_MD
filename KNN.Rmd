@@ -298,11 +298,11 @@ sd_price <- sd(train$SalePrice, na.rm = TRUE)
 lower_limit <- median(train$SalePrice)
 upper_limit <- mad(train$SalePrice)
 
-train$Category <- ifelse(training_data$SalePrice < (lower_limit - upper_limit), "Baratas",
-                                 ifelse(training_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+train$Category <- ifelse(train$SalePrice < (lower_limit - upper_limit), "Baratas",
+                                 ifelse(train$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
 
-test$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
-                             ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+test$Category <- ifelse(test$SalePrice < (lower_limit - upper_limit), "Baratas",
+                             ifelse(test$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
 
 ```
 
@@ -325,7 +325,7 @@ confusionMatrix(clas_model, y_test)
 confusionMatrix(clas_model2, y_train)
 
 ```
-El modelo de clasificación inicial tiene un acuracy de 0.6799, este accuracy es bajo en comparación a los de los otros modelos de clasificación, pues estos regularmente obtenían valores más altos. Por ejemplo, el modelo con NaiveBayes tuvo un accuracy de 0.75 incialmente, el árbol de clasificación obtuvo un 0.88 de accuracy. Otro aspecto que hace que este modelo sea deficiente frente a los anteriores es que solamente acertó correctamente con la predicción de las casas baratas el 10% de las veces, los modelos anteriormente mencionados acertaban más del 40% de las ocasiones en esta clasificación. 
+El modelo de clasificación inicial tiene un acuracy de 0.7866, este accuracy es bastante bueno en comparación a los de los otros modelos de clasificación, pues estos regularmente obtenían valores similares. Por ejemplo, el modelo con NaiveBayes tuvo un accuracy de 0.75 incialmente, el árbol de clasificación obtuvo un 0.88 de accuracy. Un aspecto que hace que este modelo sea deficiente frente a los anteriores es que solamente acertó correctamente con la predicción de las casas baratas el 10% de las veces, los modelos anteriormente mencionados acertaban más del 40% de las ocasiones en esta clasificación. 
 
 Otro aspecto relevante es que el modelo no presenta overfitting, pues obtuvo resultados similares tanto con los datos de prueba como con los de entrenamiento, por lo que se intuye que sabe generalizar de buena forma la información.
 
@@ -366,8 +366,8 @@ confusionMatrix(final_predictions, y_test)
 
 ```
 
-Se observa que el mejor valor k posible para el modelo de clasificación es 5, con este valor de k se obtuvo un accuracy de 0.85 y un kappa value de 0.68, mucho mejor que con el modelo anterior. Además de eso, este modelo presente una mejora significativa en sus predicciones pues ahora acierta en el 51% de las veces en la clasificación de casas baratas, incluso mejoró prediciendo casas caras pues ahora acertó un 73% de las veces, en el modelo anterior solamente acertó el 51% de las veces. A pesar de eso, bajo su rendimiento clasificando casas medianas pues ahora acertó el 94% de las veces mientras que en el primer modelo logró acertar en el 96% de las ocasiones. 
-A pesar de la mejora en los resultados, este modelo sigue sin ser mejor que modelos de clasificación generados con otros algoritmos pues el modelo Naive Bayes, a pesar de tener un accuracy menor (0.82), acertaba de mejor forma en la calsificación pues en las 3 variables acertó más del 65% de las ocasiones. El modelo del árbol de clasificación tuvo un accuracy de 0.88 y acertaba en más del 65% de las ocasiones en la calsificación de las tres variables. Además, el modelo random forest tuvo un accuracy de 0.98 y acertó el 100% delas veces en la clasificación de las tres variables. 
+Se observa que el mejor valor k posible para el modelo de clasificación es 9, con este valor de k se obtuvo un accuracy de 0.88 y un kappa value de 0.75, mucho mejor que con el modelo anterior. Además de eso, este modelo presente una mejora significativa en sus predicciones pues ahora acierta en el 51% de las veces en la clasificación de casas baratas, incluso mejoró prediciendo casas caras pues ahora acertó un 75% de las veces, en el modelo anterior solamente acertó el 51% de las veces. A pesar de eso, bajo su rendimiento clasificando casas medianas pues ahora acertó el 94% de las veces mientras que en el primer modelo logró acertar en el 96% de las ocasiones. 
+Este modelo es mejor que que el modelo Naive Bayes, tiene un un accuracy mayor (0.82) y acierta de mejor forma en la calsificación pues en las 3 variables acertó más del 75% de las ocasiones. El modelo del árbol de clasificación tuvo un accuracy de 0.88 y acertaba en más del 65% de las ocasiones en la calsificación de las tres variables. Además, el modelo random forest tuvo un accuracy de 0.98 y acertó el 100% delas veces en la clasificación de las tres variables. En base a estos resultados se peude concluir que este modelo es el 2do mejor pues se equivoca menos en realizar predicciones en las 3 variables que el modelo del árbol de clasificación, sin embargo sigue siendo peor que el random forest. 
 
 # Conclusiones 
 
