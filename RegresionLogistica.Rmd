@@ -156,3 +156,95 @@ varImp_plot <- varImp(logistic_model)
 plot(varImp_plot, top = 20, main = "Importancia de Variables")
 ```
 
+```{r Paso 4 - Analisis del modelo}
+model_matrix <- model.matrix(~ ., data = X_train_scaled)[, -1]
+vif_result <- tryCatch({
+  vif(lm(y_train ~ ., data = as.data.frame(model_matrix)))
+}, error = function(e) {
+  cat("Error al calcular VIF:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(vif_result)) {
+  vif_df <- data.frame(
+    Variable = names(vif_result),
+    VIF = vif_result
+  )
+  vif_df <- vif_df[order(-vif_df$VIF), ]
+  print("Factores de Inflación de Varianza (VIF):")
+  print(head(vif_df, 20))
+  cat("Variables con VIF > 10 (posible multicolinealidad):\n")
+  print(vif_df[vif_df$VIF > 10, ])
+} else {
+  cat("No se pudo calcular el VIF debido a alta colinealidad.\n")
+}
+
+cor_matrix <- cor(train_data[, numeric_vars])
+print("Matriz de correlación:")
+print(cor_matrix)
+
+print("Correlaciones altas (> 0.7):")
+high_cor <- which(abs(cor_matrix) > 0.7 & abs(cor_matrix) < 1, arr.ind = TRUE)
+if (length(high_cor) > 0 && nrow(high_cor) > 0) {
+  for (i in 1:nrow(high_cor)) {
+    if (high_cor[i, 1] < high_cor[i, 2]) {
+      cat(numeric_vars[high_cor[i, 1]], " - ", numeric_vars[high_cor[i, 2]], 
+          ": ", cor_matrix[high_cor[i, 1], high_cor[i, 2]], "\n")
+    }
+  }
+} else {
+  cat("No se encontraron correlaciones altas (> 0.7) entre las variables numéricas.\n")
+}
+
+prob_train <- predict(logistic_model, newdata = X_train_scaled, type = "prob")[, "Si"]
+hoslem_result <- tryCatch({
+  hoslem.test(y_train, prob_train, g = 10)
+}, error = function(e) {
+  cat("Error en la prueba de Hosmer-Lemeshow:", e$message, "\n")
+  return(NULL)
+})
+
+if (!is.null(hoslem_result)) {
+  print("Test de Hosmer-Lemeshow:")
+  print(hoslem_result)
+} else {
+  cat("No se pudo realizar el test de Hosmer-Lemeshow.\n")
+}
+
+null_deviance <- logistic_model$finalModel$null.deviance
+residual_deviance <- logistic_model$finalModel$deviance
+deviance_diff <- null_deviance - residual_deviance
+df_diff <- logistic_model$finalModel$df.null - logistic_model$finalModel$df.residual
+p_value <- pchisq(deviance_diff, df = df_diff, lower.tail = FALSE)
+
+cat("Análisis de Devianza:\n")
+cat("Devianza nula:", null_deviance, "\n")
+cat("Devianza residual:", residual_deviance, "\n")
+cat("Diferencia en devianza:", deviance_diff, "\n")
+cat("Diferencia en grados de libertad:", df_diff, "\n")
+cat("p-valor:", p_value, "\n")
+
+mcfadden_r2 <- 1 - (residual_deviance / null_deviance)
+cat("R² de McFadden:", mcfadden_r2, "\n")
+```
+
+```{r Paso 5 - Evaluacion del modelo}
+predictions_prob <- predict(logistic_model, newdata = X_test_scaled, type = "prob")[, "Si"]
+predictions_class <- predict(logistic_model, newdata = X_test_scaled, type = "raw")
+
+conf_matrix <- confusionMatrix(predictions_class, factor(y_test, levels = c(0, 1), labels = c("No", "Si")))
+print(conf_matrix)
+
+roc_curve <- roc(y_test, predictions_prob)
+auc_value <- auc(roc_curve)
+
+plot(roc_curve, main = paste("Curva ROC (AUC =", round(auc_value, 3), ")"),
+     col = "blue", lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "red")
+
+cat("Área bajo la curva ROC (AUC):", auc_value, "\n")
+cat("Precisión:", Precision(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
+cat("Recall:", Recall(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
+cat("F1 Score:", F1_Score(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
+```
+
