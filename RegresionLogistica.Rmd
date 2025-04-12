@@ -24,18 +24,15 @@ library(MLmetrics)
 ```
 
 
-```{r}
-# Cargar los datos
+```{r Creacion de variables dicotómicas}
 train <- read.csv("train.csv")
 
-# Configurar la semilla para reproducibilidad
 set.seed(245)
 porciento <- 0.7
 corte <- sample(nrow(train), nrow(train) * porciento)
 train_data <- train[corte, ]
 test_data <- train[-corte, ]
 
-# Crear variable categórica (usando el mismo método que en KNN.Rmd)
 mean_price <- mean(train_data$SalePrice, na.rm = TRUE)
 sd_price <- sd(train_data$SalePrice, na.rm = TRUE)
 lower_limit <- median(train_data$SalePrice)
@@ -47,7 +44,6 @@ train_data$Category <- ifelse(train_data$SalePrice < (lower_limit - upper_limit)
 test_data$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
                        ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
 
-# Crear variables dicotómicas por cada categoría
 train_data$Es_Cara <- ifelse(train_data$Category == "Caras", 1, 0)
 train_data$Es_Media <- ifelse(train_data$Category == "Medianas", 1, 0)
 train_data$Es_Barata <- ifelse(train_data$Category == "Baratas", 1, 0)
@@ -56,9 +52,107 @@ test_data$Es_Cara <- ifelse(test_data$Category == "Caras", 1, 0)
 test_data$Es_Media <- ifelse(test_data$Category == "Medianas", 1, 0)
 test_data$Es_Barata <- ifelse(test_data$Category == "Baratas", 1, 0)
 
-# Mostrar distribución de las nuevas variables
 table(train_data$Es_Cara)
 table(train_data$Es_Media)
 table(train_data$Es_Barata)
+```
+
+```{r Paso 2 - Preparacion de los conjuntos de entrenamiento y prueba}
+numeric_vars <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", 
+                 "FullBath", "YearBuilt", "YearRemodAdd", "Fireplaces",
+                 "BsmtFinSF1", "LotArea", "MasVnrArea", "WoodDeckSF")
+
+categorical_vars <- c("Neighborhood", "ExterQual", "KitchenQual", "BsmtQual", 
+                     "GarageFinish", "Foundation", "MSZoning", "CentralAir")
+
+for(var in numeric_vars) {
+  if(sum(is.na(train_data[[var]])) > 0) {
+    median_value <- median(train_data[[var]], na.rm = TRUE)
+    train_data[[var]][is.na(train_data[[var]])] <- median_value
+  }
+  
+  if(sum(is.na(test_data[[var]])) > 0) {
+    median_value <- median(train_data[[var]], na.rm = TRUE)
+    test_data[[var]][is.na(test_data[[var]])] <- median_value
+  }
+}
+
+for(var in categorical_vars) {
+  if(sum(is.na(train_data[[var]])) > 0) {
+    mode_value <- names(sort(table(train_data[[var]]), decreasing = TRUE))[1]
+    train_data[[var]][is.na(train_data[[var]])] <- mode_value
+  }
+  
+  if(sum(is.na(test_data[[var]])) > 0) {
+    mode_value <- names(sort(table(train_data[[var]]), decreasing = TRUE))[1]
+    test_data[[var]][is.na(test_data[[var]])] <- mode_value
+  }
+  
+  all_levels <- unique(c(levels(factor(train_data[[var]])), levels(factor(test_data[[var]]))))
+  train_data[[var]] <- factor(train_data[[var]], levels = all_levels)
+  test_data[[var]] <- factor(test_data[[var]], levels = all_levels)
+}
+
+predictors_cat <- train_data[, categorical_vars]
+dummies <- dummyVars(~ ., data = predictors_cat, fullRank = TRUE)
+predictors_cat_encoded <- predict(dummies, predictors_cat)
+
+X_train <- cbind(train_data[, numeric_vars], predictors_cat_encoded)
+y_train <- train_data$Es_Cara  
+
+preproc <- preProcess(X_train, method = c("center", "scale"))
+X_train_scaled <- predict(preproc, X_train)
+
+predictors_cat_test <- test_data[, categorical_vars]
+predictors_cat_test_encoded <- predict(dummies, predictors_cat_test)
+X_test <- cbind(test_data[, numeric_vars], predictors_cat_test_encoded)
+
+train_cols <- colnames(X_train)
+test_cols <- colnames(X_test)
+
+missing_in_test <- setdiff(train_cols, test_cols)
+missing_in_train <- setdiff(test_cols, train_cols)
+
+if(length(missing_in_test) > 0) {
+  for(col in missing_in_test) {
+    X_test[, col] <- 0
+  }
+}
+
+if(length(missing_in_train) > 0) {
+  X_test <- X_test[, !(colnames(X_test) %in% missing_in_train)]
+}
+
+X_test <- X_test[, colnames(X_train)]
+X_test_scaled <- predict(preproc, X_test)
+
+y_test <- test_data$Es_Cara
+```
+
+```{r Paso 3 - Modelo de regresion logistica}
+set.seed(245)
+train_control <- trainControl(
+  method = "cv",
+  number = 10,
+  savePredictions = "all",
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+logistic_model <- train(
+  x = X_train_scaled,
+  y = factor(y_train, levels = c(0, 1), labels = c("No", "Si")),
+  method = "glm",
+  family = "binomial",
+  trControl = train_control,
+  metric = "ROC"
+)
+
+summary(logistic_model$finalModel)
+
+print(logistic_model)
+
+varImp_plot <- varImp(logistic_model)
+plot(varImp_plot, top = 20, main = "Importancia de Variables")
 ```
 
