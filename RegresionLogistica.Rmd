@@ -57,6 +57,8 @@ table(train_data$Es_Media)
 table(train_data$Es_Barata)
 ```
 
+En este primer chunk se crearon las variables dicotómicas para cada una de las categorías de precio de vivienda. La distribución de las variables muestra que de las 1,021 viviendas en el conjunto de entrenamiento, 221 (21.6%) son consideradas caras, 710 (69.5%) son de precio medio, y solo 90 (8.8%) son baratas. Esta distribución desbalanceada es importante considerarla al evaluar el modelo, ya que clasificar correctamente las viviendas baratas podría ser más complicado debido a su menor representación en los datos.
+
 ```{r Paso 2 - Preparacion de los conjuntos de entrenamiento y prueba}
 numeric_vars <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", 
                  "FullBath", "YearBuilt", "YearRemodAdd", "Fireplaces",
@@ -149,12 +151,18 @@ logistic_model <- train(
 )
 
 summary(logistic_model$finalModel)
+```
 
+El resumen del modelo de regresión logística muestra que varias variables son estadísticamente significativas para predecir si una vivienda es cara o no. Las variables con mayor impacto (indicadas por asteriscos) son: OverallQual (calidad general) y GrLivArea (área habitable sobre el nivel del suelo) con p-valores menores a 0.001, seguidas por TotalBsmtSF (área total del sótano), GarageCars (capacidad del garaje) y YearRemodAdd (año de remodelación) con p-valores menores a 0.01. Este resultado sugiere que estas características son determinantes clave para identificar viviendas de precio elevado.
+
+```{r Parte 2 del paso 3}
 print(logistic_model)
 
 varImp_plot <- varImp(logistic_model)
 plot(varImp_plot, top = 20, main = "Importancia de Variables")
 ```
+
+El gráfico de importancia de variables confirma los hallazgos del resumen del modelo. GrLivArea es la variable más importante, seguida por OverallQual, TotalBsmtSF y YearRemodAdd. Estas cuatro variables tienen una importancia sustancialmente mayor que el resto, lo que indica que son los principales predictores para determinar si una vivienda es cara. Este resultado tiene sentido intuitivo, ya que el tamaño de la vivienda, su calidad constructiva y las actualizaciones recientes son factores que típicamente incrementan el valor de una propiedad.
 
 ```{r Paso 4 - Analisis del modelo}
 model_matrix <- model.matrix(~ ., data = X_train_scaled)[, -1]
@@ -178,7 +186,11 @@ if (!is.null(vif_result)) {
 } else {
   cat("No se pudo calcular el VIF debido a alta colinealidad.\n")
 }
+```
 
+El análisis de multicolinealidad mediante los factores VIF revela que varias variables tienen valores superiores a 10, lo que indica posible multicolinealidad. Las variables más problemáticas son MSZoning.RL (36.56), MSZoning.RM (24.39), Neighborhood.NAmes (16.51) y ExterQual.TA (14.33). Esta multicolinealidad podría afectar la estabilidad e interpretación de los coeficientes del modelo, aunque no necesariamente impacta su capacidad predictiva. Sería recomendable considerar técnicas de regularización si se busca interpretar los coeficientes con mayor precisión.
+
+```{r Parte 2 Paso 4}
 cor_matrix <- cor(train_data[, numeric_vars])
 print("Matriz de correlación:")
 print(cor_matrix)
@@ -195,7 +207,11 @@ if (length(high_cor) > 0 && nrow(high_cor) > 0) {
 } else {
   cat("No se encontraron correlaciones altas (> 0.7) entre las variables numéricas.\n")
 }
+```
 
+La matriz de correlación entre las variables numéricas muestra correlaciones moderadas a fuertes entre varias variables. Por ejemplo, OverallQual tiene correlaciones superiores a 0.5 con GrLivArea (0.60), GarageCars (0.63), TotalBsmtSF (0.57), FullBath (0.57), YearBuilt (0.58) y YearRemodAdd (0.57). Sin embargo, no se encontraron correlaciones extremadamente altas (>0.7) que pudieran causar problemas graves de multicolinealidad entre las variables numéricas. Esto sugiere que las variables numéricas aportan información complementaria al modelo.
+
+```{r Parte 3 Paso 4}
 prob_train <- predict(logistic_model, newdata = X_train_scaled, type = "prob")[, "Si"]
 hoslem_result <- tryCatch({
   hoslem.test(y_train, prob_train, g = 10)
@@ -228,13 +244,19 @@ mcfadden_r2 <- 1 - (residual_deviance / null_deviance)
 cat("R² de McFadden:", mcfadden_r2, "\n")
 ```
 
+El análisis de devianza muestra un excelente ajuste del modelo. La devianza nula de 1066.71 se reduce a una devianza residual de 256.47, lo que representa una reducción significativa (p-valor = 1.097e-133). El R² de McFadden de 0.76 es muy alto, indicando que el modelo explica aproximadamente el 76% de la variación en los datos, lo cual es excepcional para un modelo de regresión logística. Estos resultados confirman que las variables seleccionadas tienen un alto poder predictivo para clasificar viviendas caras.
+
 ```{r Paso 5 - Evaluacion del modelo}
 predictions_prob <- predict(logistic_model, newdata = X_test_scaled, type = "prob")[, "Si"]
 predictions_class <- predict(logistic_model, newdata = X_test_scaled, type = "raw")
 
 conf_matrix <- confusionMatrix(predictions_class, factor(y_test, levels = c(0, 1), labels = c("No", "Si")))
 print(conf_matrix)
+```
 
+La matriz de confusión demuestra un rendimiento excepcional del modelo en el conjunto de prueba, con una precisión general del 96.13%. El modelo clasificó correctamente 366 de las 374 viviendas no caras (sensibilidad de 97.86%) y 56 de las 65 viviendas caras (especificidad de 86.15%). Estos resultados son notablemente buenos, especialmente considerando el desbalance en las clases. El valor Kappa de 0.8455 indica un acuerdo casi perfecto entre las predicciones y los valores reales, muy por encima del acuerdo esperado por azar.
+
+```{r Parte 2 Paso 5}
 roc_curve <- roc(y_test, predictions_prob)
 auc_value <- auc(roc_curve)
 
@@ -247,6 +269,8 @@ cat("Precisión:", Precision(y_pred = predictions_class == "Si", y_true = y_test
 cat("Recall:", Recall(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
 cat("F1 Score:", F1_Score(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
 ```
+
+La curva ROC muestra un rendimiento casi perfecto del modelo con un área bajo la curva (AUC) de 0.978. Este valor, cercano al máximo posible de 1.0, indica que el modelo tiene una excelente capacidad para distinguir entre viviendas caras y no caras. La forma de la curva, que se acerca rápidamente a la esquina superior izquierda, confirma que el modelo logra una alta sensibilidad (tasa de verdaderos positivos) manteniendo una alta especificidad (baja tasa de falsos positivos) en diferentes umbrales de clasificación.
 
 ```{r Paso 6}
 evaluate_model_sizes <- function(X, y, sizes, seed = 245) {
@@ -296,7 +320,11 @@ ggplot(learning_curves_df, aes(x = Size, y = Error, color = Type)) +
        x = "Tamaño del conjunto de entrenamiento",
        y = "Error de clasificación") +
   theme_minimal()
+```
 
+Las curvas de aprendizaje muestran una tendencia interesante: mientras que el error de entrenamiento se mantiene consistentemente bajo (cercano a cero para la mayoría de los tamaños de muestra), el error de prueba comienza alto con muestras pequeñas y disminuye considerablemente a medida que aumenta el tamaño del conjunto de entrenamiento. Esto indica que el modelo se beneficia significativamente del aumento de datos para generalizar mejor. La convergencia de ambas curvas a medida que aumenta el tamaño de la muestra sugiere que el modelo alcanza un equilibrio óptimo con el conjunto completo de datos.
+
+```{r Parte 2 Paso 6}
 cat("Error en conjunto de entrenamiento:", mean(predict(logistic_model, X_train_scaled, type = "raw") != factor(y_train, levels = c(0, 1), labels = c("No", "Si"))), "\n")
 cat("Error en conjunto de prueba:", mean(predictions_class != factor(y_test, levels = c(0, 1), labels = c("No", "Si"))), "\n")
 
@@ -312,3 +340,4 @@ if (test_error > (1.1 * train_error)) {
 }
 ```
 
+El análisis de la diferencia entre los errores de prueba y entrenamiento revela que no hay evidencia clara de sobreajuste. El error en el conjunto de entrenamiento es de 3.72%, mientras que en el conjunto de prueba es de 3.87%, resultando en una diferencia de apenas 0.15 puntos porcentuales. Esta mínima diferencia indica que el modelo generaliza muy bien a datos no vistos. La conclusión es consistente con lo observado en las curvas de aprendizaje, confirmando que el modelo de regresión logística desarrollado es robusto y confiable para la clasificación de viviendas caras.
