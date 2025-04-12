@@ -1,0 +1,64 @@
+---
+title: "Regresion Logistica"
+author: "Pedro Guzmán, Gustavo Cruz"
+date: "2025-03-20"
+output: html_document
+---
+
+## Repositorio (revisar branch RegresionLogistica)
+
+https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
+```{r}
+# Chunk para librerias
+library(tidyverse)
+library(caret)
+library(car)
+library(glmnet)
+library(pROC)
+library(MLmetrics)
+```
+
+
+```{r}
+# Cargar los datos
+train <- read.csv("train.csv")
+
+# Configurar la semilla para reproducibilidad
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(train), nrow(train) * porciento)
+train_data <- train[corte, ]
+test_data <- train[-corte, ]
+
+# Crear variable categórica (usando el mismo método que en KNN.Rmd)
+mean_price <- mean(train_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(train_data$SalePrice, na.rm = TRUE)
+lower_limit <- median(train_data$SalePrice)
+upper_limit <- mad(train_data$SalePrice)
+
+train_data$Category <- ifelse(train_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                        ifelse(train_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+test_data$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                       ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+# Crear variables dicotómicas por cada categoría
+train_data$Es_Cara <- ifelse(train_data$Category == "Caras", 1, 0)
+train_data$Es_Media <- ifelse(train_data$Category == "Medianas", 1, 0)
+train_data$Es_Barata <- ifelse(train_data$Category == "Baratas", 1, 0)
+
+test_data$Es_Cara <- ifelse(test_data$Category == "Caras", 1, 0)
+test_data$Es_Media <- ifelse(test_data$Category == "Medianas", 1, 0)
+test_data$Es_Barata <- ifelse(test_data$Category == "Baratas", 1, 0)
+
+# Mostrar distribución de las nuevas variables
+table(train_data$Es_Cara)
+table(train_data$Es_Media)
+table(train_data$Es_Barata)
+```
+
