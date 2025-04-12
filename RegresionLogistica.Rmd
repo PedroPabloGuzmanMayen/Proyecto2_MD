@@ -248,3 +248,67 @@ cat("Recall:", Recall(y_pred = predictions_class == "Si", y_true = y_test == 1),
 cat("F1 Score:", F1_Score(y_pred = predictions_class == "Si", y_true = y_test == 1), "\n")
 ```
 
+```{r Paso 6}
+evaluate_model_sizes <- function(X, y, sizes, seed = 245) {
+  train_errors <- numeric(length(sizes))
+  test_errors <- numeric(length(sizes))
+  
+  for (i in seq_along(sizes)) {
+    set.seed(seed)
+    size <- sizes[i]
+    sample_indices <- sample(nrow(X), size = size)
+    
+    X_train_subset <- X[sample_indices, ]
+    y_train_subset <- y[sample_indices]
+    
+    X_val <- X[-sample_indices, ]
+    y_val <- y[-sample_indices]
+    
+    model <- glm(y_train_subset ~ ., data = as.data.frame(X_train_subset), family = "binomial")
+    
+    train_probs <- predict(model, newdata = as.data.frame(X_train_subset), type = "response")
+    train_preds <- ifelse(train_probs > 0.5, 1, 0)
+    train_errors[i] <- mean(train_preds != y_train_subset)
+    
+    test_probs <- predict(model, newdata = as.data.frame(X_val), type = "response")
+    test_preds <- ifelse(test_probs > 0.5, 1, 0)
+    test_errors[i] <- mean(test_preds != y_val)
+  }
+  
+  return(list(train_errors = train_errors, test_errors = test_errors))
+}
+
+train_sizes <- seq(100, nrow(X_train_scaled) - 100, length.out = 10)
+train_sizes <- floor(train_sizes)
+
+errors <- evaluate_model_sizes(X_train_scaled, y_train, train_sizes)
+
+learning_curves_df <- data.frame(
+  Size = rep(train_sizes, 2),
+  Error = c(errors$train_errors, errors$test_errors),
+  Type = c(rep("Entrenamiento", length(train_sizes)), rep("Prueba", length(train_sizes)))
+)
+
+ggplot(learning_curves_df, aes(x = Size, y = Error, color = Type)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Curvas de Aprendizaje",
+       x = "Tamaño del conjunto de entrenamiento",
+       y = "Error de clasificación") +
+  theme_minimal()
+
+cat("Error en conjunto de entrenamiento:", mean(predict(logistic_model, X_train_scaled, type = "raw") != factor(y_train, levels = c(0, 1), labels = c("No", "Si"))), "\n")
+cat("Error en conjunto de prueba:", mean(predictions_class != factor(y_test, levels = c(0, 1), labels = c("No", "Si"))), "\n")
+
+train_error <- mean(predict(logistic_model, X_train_scaled, type = "raw") != factor(y_train, levels = c(0, 1), labels = c("No", "Si")))
+test_error <- mean(predictions_class != factor(y_test, levels = c(0, 1), labels = c("No", "Si")))
+cat("Diferencia entre error de prueba y entrenamiento:", test_error - train_error, "\n")
+
+if (test_error > (1.1 * train_error)) {
+  cat("Conclusión: Hay evidencia de sobreajuste (overfitting), ya que el error en el conjunto de prueba es", 
+      round((test_error/train_error - 1) * 100, 2), "% mayor que en el conjunto de entrenamiento.\n")
+} else {
+  cat("Conclusión: No hay evidencia clara de sobreajuste, ya que el error en el conjunto de prueba no es sustancialmente mayor que en el conjunto de entrenamiento.\n")
+}
+```
+
