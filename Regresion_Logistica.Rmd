@@ -7,24 +7,63 @@ output: html_document
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(warning=FALSE)
 ```
 
-## R Markdown
+```{r}
+# Chunk para librerias
+library(ggplot2)
+library(caret)
+library(dplyr)
+library(car)
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+```
+# Regresión logística
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+## Creación de las variables dicotómicas
 
-```{r cars}
-summary(cars)
+Para cerar la variable dicotómica, se usará la variable "Cateogry" creada en ejercicios anteriores, los valores de esta variable determinaran los valores de las nuevas variables dicotómicas. 
+```{r}
+train <- read.csv("train.csv")
+
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(train),nrow(train) * porciento)
+train <- train[corte, ]
+test <- train[-corte, ]
+
+training_data <- read.csv("train.csv")
+set.seed(245)
+porciento <- 0.7
+corte <- sample(nrow(training_data),nrow(training_data) * porciento)
+training_data <- training_data[corte, ]
+test_data <- training_data[-corte, ]
+mean_price <- mean(training_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(training_data$SalePrice, na.rm = TRUE)
+lower_limit <- median(training_data$SalePrice)
+upper_limit <- mad(training_data$SalePrice)
+
+training_data$Category <- ifelse(training_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                                 ifelse(training_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+test_data$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                             ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+
+training_data <- training_data %>%
+  mutate(
+    Barata = ifelse(Category == "Baratas", 1, 0),
+    Mediana  = ifelse(Category == "Medianas", 1, 0),
+    Cara   = ifelse(Category == "Caras", 1, 0)
+  )
+
+test_data <- test_data %>%
+  mutate(
+    Barata = ifelse(Category == "Baratas", 1, 0),
+    Mediana  = ifelse(Category == "Medianas", 1, 0),
+    Cara   = ifelse(Category == "Caras", 1, 0)
+  )
+
+
 ```
 
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
