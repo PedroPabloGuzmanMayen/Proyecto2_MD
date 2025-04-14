@@ -13,7 +13,7 @@ https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
 knitr::opts_chunk$set(warning=FALSE)
 ```
 
-```{r}
+```{r Chunk de librerias}
 # Chunk para librerias
 library(tidyverse)
 library(caret)
@@ -21,7 +21,7 @@ library(car)
 library(glmnet)
 library(pROC)
 library(MLmetrics)
-library(profvis)
+library(nnet)
 ```
 
 
@@ -429,5 +429,190 @@ ggplot(data = best_conf_matrix, aes(x = Referencia, y = Predicción, fill = Frec
        x = "Valor real",
        y = "Valor predicho") +
   theme(plot.title = element_text(hjust = 0.5, size = 14))
+```
+
+```{r Paso 9}
+prob_original <- predict(logistic_model, newdata = X_test_scaled, type = "prob")[, "Si"]
+prob_tuned <- predict(logistic_tuned, newdata = X_test_scaled, type = "prob")[, "Si"]
+
+roc_original <- roc(y_test, prob_original)
+roc_tuned <- roc(y_test, prob_tuned)
+auc_original <- auc(roc_original)
+auc_tuned <- auc(roc_tuned)
+
+model_comparison <- data.frame(
+  Métrica = c("Exactitud", "Kappa", "AUC", "Sensibilidad", "Especificidad", 
+             "Valor predictivo positivo", "Valor predictivo negativo", 
+             "F1 Score", "Tiempo de ejecución (s)"),
+  `Modelo Original` = c(
+    round(conf_original$overall["Accuracy"], 4),
+    round(conf_original$overall["Kappa"], 4),
+    round(as.numeric(auc_original), 4),
+    round(conf_original$byClass["Sensitivity"], 4),
+    round(conf_original$byClass["Specificity"], 4),
+    round(conf_original$byClass["Pos Pred Value"], 4),
+    round(conf_original$byClass["Neg Pred Value"], 4),
+    round(conf_original$byClass["F1"], 4),
+    round(as.numeric(time_original), 4)
+  ),
+  `Modelo Tuneado` = c(
+    round(conf_tuned$overall["Accuracy"], 4),
+    round(conf_tuned$overall["Kappa"], 4),
+    round(as.numeric(auc_tuned), 4),
+    round(conf_tuned$byClass["Sensitivity"], 4),
+    round(conf_tuned$byClass["Specificity"], 4),
+    round(conf_tuned$byClass["Pos Pred Value"], 4),
+    round(conf_tuned$byClass["Neg Pred Value"], 4),
+    round(conf_tuned$byClass["F1"], 4),
+    round(as.numeric(time_tuned), 4)
+  )
+)
+
+knitr::kable(model_comparison, caption = "Comparación detallada de los modelos")
+
+# Grafica de curvas roc
+plot(roc_original, main = "Comparación de curvas ROC", 
+     col = "blue", lwd = 2, print.auc = FALSE, legacy.axes = TRUE)
+lines(roc_tuned, col = "red", lwd = 2)
+legend("bottomright", 
+       legend = c(paste("Original (AUC =", round(auc_original, 3), ")"),
+                 paste("Tuneado (AUC =", round(auc_tuned, 3), ")")), 
+       col = c("blue", "red"), lwd = 2)
+abline(a = 0, b = 1, lty = 2, col = "gray")
+
+# Comparar los resultados y despues verificamos cual es el mejor modelo, segun esa comparacion
+cat("\nDeterminación del mejor modelo basado en métricas clave:\n")
+better_metrics <- sum(model_comparison[c(1,2,3,8), 2] > model_comparison[c(1,2,3,8), 3])
+
+if (better_metrics >= 3) {
+  cat("El modelo original supera al tuneado en la mayoría de métricas importantes.\n")
+  best_model <- "Original"
+} else {
+  cat("El modelo tuneado supera o iguala al original en la mayoría de métricas importantes.\n")
+  best_model <- "Tuneado"
+}
+
+cat("Modelo seleccionado como óptimo:", best_model, "\n")
+```
+
+```{r Paso 10}
+train_data$Category <- factor(train_data$Category, levels = c("Baratas", "Medianas", "Caras"))
+test_data$Category <- factor(test_data$Category, levels = c("Baratas", "Medianas", "Caras"))
+
+set.seed(245)
+train_control_multi <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+decay_grid <- 10^seq(-4, 0, length.out = 10)
+
+start_time_multi <- Sys.time()
+
+multinomial_model <- train(
+  x = X_train_scaled,
+  y = train_data$Category,
+  method = "multinom",
+  trControl = train_control_multi,
+  tuneGrid = data.frame(decay = decay_grid),
+  trace = FALSE,
+  maxit = 500
+)
+
+end_time_multi <- Sys.time()
+time_multi <- difftime(end_time_multi, start_time_multi, units = "secs")
+
+ggplot(multinomial_model) +
+  ggtitle("Rendimiento del modelo multinomial según parámetro de regularización") +
+  xlab("Decay (Regularización)") +
+  ylab("Exactitud") +
+  theme_minimal()
+
+multi_predictions <- predict(multinomial_model, newdata = X_test_scaled)
+conf_multi <- confusionMatrix(multi_predictions, test_data$Category)
+
+conf_table <- as.data.frame(conf_multi$table)
+conf_table$Prediction <- factor(conf_table$Prediction, levels = c("Baratas", "Medianas", "Caras"))
+conf_table$Reference <- factor(conf_table$Reference, levels = c("Baratas", "Medianas", "Caras"))
+
+ggplot(data = conf_table, aes(x = Reference, y = Prediction, fill = Freq)) +
+  geom_tile() +
+  geom_text(aes(label = Freq), color = "white", size = 5) +
+  scale_fill_gradient(low = "darkblue", high = "red") +
+  theme_minimal() +
+  labs(title = "Matriz de confusión - Modelo multinomial",
+       x = "Categoría real",
+       y = "Categoría predicha") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14))
+
+cat("Rendimiento del modelo multinomial:\n")
+cat("Exactitud:", round(conf_multi$overall["Accuracy"], 4), "\n")
+cat("Kappa:", round(conf_multi$overall["Kappa"], 4), "\n")
+cat("Tiempo de entrenamiento:", round(as.numeric(time_multi), 2), "segundos\n\n")
+
+cat("Métricas por clase:\n")
+metrics_by_class <- data.frame(
+  Categoría = c("Baratas", "Medianas", "Caras"),
+  Sensibilidad = round(conf_multi$byClass[, "Sensitivity"], 4),
+  Especificidad = round(conf_multi$byClass[, "Specificity"], 4),
+  Precisión = round(conf_multi$byClass[, "Pos Pred Value"], 4),
+  F1 = round(conf_multi$byClass[, "F1"], 4)
+)
+
+knitr::kable(metrics_by_class, caption = "Métricas por categoría de precio")
+```
+
+```{r Paso 11}
+knn_accuracy <- 0.886  # Del modelo KNN tuneado (k=9)
+naive_bayes_accuracy <- 0.747  # Del modelo Naive Bayes
+arbol_accuracy <- 0.882  # Del árbol de clasificación
+random_forest_accuracy <- 0.981  # Del random forest
+
+models_comparison <- data.frame(
+  Modelo = c("Regresión Logística Binaria", "Regresión Logística Multinomial", 
+             "KNN", "Naive Bayes", "Árbol de Clasificación", "Random Forest"),
+  Exactitud = round(c(as.numeric(conf_original$overall["Accuracy"]), 
+                     as.numeric(conf_multi$overall["Accuracy"]),
+                     knn_accuracy, naive_bayes_accuracy, arbol_accuracy, random_forest_accuracy), 4),
+  Tiempo_relativo = c("Medio", "Alto", "Medio", "Bajo", "Medio", "Alto"),
+  Interpretabilidad = c("Alta", "Media", "Baja", "Media", "Alta", "Baja"),
+  Complejidad = c("Media", "Alta", "Baja", "Baja", "Media", "Alta")
+)
+
+knitr::kable(models_comparison, caption = "Comparación de todos los modelos implementados")
+
+ggplot(models_comparison, aes(x = reorder(Modelo, Exactitud), y = Exactitud, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  coord_flip() +
+  geom_text(aes(label = Exactitud), hjust = -0.2, size = 3.5) +
+  ylim(0, 1.1) +
+  labs(title = "Comparación de exactitud entre modelos",
+       x = "",
+       y = "Exactitud") +
+  theme_minimal() +
+  theme(legend.position = "none")
+
+cat("Análisis comparativo de todos los modelos:\n\n")
+
+cat("1. Exactitud:\n")
+cat("   - El modelo con mayor exactitud es:", 
+    models_comparison$Modelo[which.max(models_comparison$Exactitud)], 
+    "con", max(models_comparison$Exactitud), "\n")
+cat("   - El modelo con menor exactitud es:", 
+    models_comparison$Modelo[which.min(models_comparison$Exactitud)], 
+    "con", min(models_comparison$Exactitud), "\n\n")
+
+cat("2. Balance entre rendimiento e interpretabilidad:\n")
+cat("   - La Regresión Logística ofrece un excelente balance entre exactitud e interpretabilidad,\n")
+cat("     permitiendo entender qué factores influyen en que una vivienda sea cara.\n")
+cat("   - Random Forest proporciona la mayor exactitud pero sacrifica interpretabilidad.\n\n")
+
+cat("3. Recomendaciones según el objetivo:\n")
+cat("   - Para maximizar exactitud: Random Forest\n")
+cat("   - Para balance entre exactitud e interpretabilidad: Regresión Logística\n")
+cat("   - Para modelos simples y rápidos: Naive Bayes\n")
+cat("   - Para visualización del proceso de decisión: Árbol de Clasificación\n")
 ```
 
