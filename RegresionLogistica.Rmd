@@ -378,6 +378,8 @@ cat("Alpha:", logistic_tuned$bestTune$alpha, "(0=Ridge, 1=Lasso)\n")
 cat("Lambda:", logistic_tuned$bestTune$lambda, "\n")
 ```
 
+El gráfico de rendimiento del modelo según los parámetros de regularización muestra que los mejores resultados se obtienen con valores bajos de lambda para todos los valores de alpha. El modelo alcanza su máximo rendimiento con un alpha de 0.6 (un equilibrio entre regularización Ridge y Lasso) y un lambda de 0.006, lo que indica que una regularización moderada proporciona mejores resultados que un modelo sin regularizar o uno con regularización excesiva. Esta combinación de parámetros permite mantener las variables importantes mientras penaliza las menos relevantes, lo cual es especialmente útil dado que se identificó multicolinealidad en algunas variables como se observó en el análisis VIF.
+
 ```{r Paso 8}
 start_time_original <- Sys.time()
 original_predictions <- predict(logistic_model, newdata = X_test_scaled, type = "raw")
@@ -430,6 +432,8 @@ ggplot(data = best_conf_matrix, aes(x = Referencia, y = Predicción, fill = Frec
        y = "Valor predicho") +
   theme(plot.title = element_text(hjust = 0.5, size = 14))
 ```
+
+La comparación de rendimiento entre los modelos original y tuneado muestra una mejora clara con la regularización. El modelo tuneado logra una exactitud de 0.9681 frente al 0.9613 del modelo original, con mejoras también en sensibilidad (0.9866 vs 0.9786) mientras mantiene la misma especificidad (0.8615). Además, el número de falsos positivos se reduce de 8 a 5, manteniendo los mismos falsos negativos (9). La matriz de confusión visualizada para el modelo tuneado confirma su excelente capacidad predictiva, con 369 viviendas no caras y 56 viviendas caras correctamente clasificadas. El tiempo de ejecución también es ligeramente mejor en el modelo tuneado (0.0033s vs 0.0041s), lo que demuestra que la regularización no solo mejora la precisión sino también la eficiencia.
 
 ```{r Paso 9}
 prob_original <- predict(logistic_model, newdata = X_test_scaled, type = "prob")[, "Si"]
@@ -494,6 +498,8 @@ if (better_metrics >= 3) {
 
 cat("Modelo seleccionado como óptimo:", best_model, "\n")
 ```
+
+La comparación detallada entre el modelo original y el tuneado muestra mejoras consistentes en prácticamente todas las métricas relevantes. El modelo tuneado supera al original en exactitud (0.9681 vs 0.9613), valor kappa (0.8703 vs 0.8455), AUC (0.9862 vs 0.9781), sensibilidad (0.9866 vs 0.9786) y F1 Score (0.9814 vs 0.9773). La visualización de las curvas ROC refuerza este hallazgo, donde la curva del modelo tuneado (roja) domina ligeramente a la del modelo original (azul). La conclusión clara es que "el modelo tuneado supera o iguala al original en la mayoría de métricas importantes", siendo por tanto seleccionado como el modelo óptimo para la clasificación binaria de viviendas caras.
 
 ```{r Paso 10}
 train_data$Category <- factor(train_data$Category, levels = c("Baratas", "Medianas", "Caras"))
@@ -564,6 +570,8 @@ metrics_by_class <- data.frame(
 knitr::kable(metrics_by_class, caption = "Métricas por categoría de precio")
 ```
 
+El modelo multinomial, capaz de clasificar las viviendas en tres categorías (Baratas, Medianas y Caras), alcanza una exactitud del 92.03% con un valor kappa de 0.7924, lo cual refleja un buen rendimiento considerando la mayor complejidad de la tarea. La matriz de confusión muestra que el modelo es particularmente eficaz en la clasificación de viviendas medianas (96.37% de sensibilidad) y caras (84.62%), mientras que tiene más dificultades con las viviendas baratas (69.77%). Este resultado es coherente con la distribución desbalanceada de las clases observada inicialmente. La gráfica de rendimiento según el parámetro de regularización muestra que un valor de decay cercano a 0.1 proporciona los mejores resultados, con una exactitud máxima de 0.87. El tiempo de entrenamiento para este modelo es significativamente mayor (5.41 segundos) debido a su mayor complejidad.
+
 ```{r Paso 11}
 knn_accuracy <- 0.886  # Del modelo KNN tuneado (k=9)
 naive_bayes_accuracy <- 0.747  # Del modelo Naive Bayes
@@ -616,3 +624,4 @@ cat("   - Para modelos simples y rápidos: Naive Bayes\n")
 cat("   - Para visualización del proceso de decisión: Árbol de Clasificación\n")
 ```
 
+La comparación de todos los modelos implementados revela que Random Forest obtiene la mayor exactitud (98.1%), seguido por Regresión Logística Binaria (96.13%), Regresión Logística Multinomial (92.03%), KNN (88.6%), Árbol de Clasificación (88.2%) y finalmente Naive Bayes (74.7%). Sin embargo, la exactitud no debe ser el único criterio de selección. La regresión logística ofrece un excelente balance entre interpretabilidad y rendimiento, permitiendo entender qué factores influyen en la clasificación de viviendas caras, mientras que Random Forest, aunque más preciso, funciona como una "caja negra". Las recomendaciones finales dependen del objetivo: usar Random Forest para maximizar la exactitud, Regresión Logística para balancear exactitud e interpretabilidad, Naive Bayes para modelos simples y rápidos, y Árboles de Clasificación cuando sea importante visualizar el proceso de decisión.
