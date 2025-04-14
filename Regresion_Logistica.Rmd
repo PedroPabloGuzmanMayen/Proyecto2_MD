@@ -16,6 +16,7 @@ library(ggplot2)
 library(caret)
 library(dplyr)
 library(car)
+library(corrplot)
 
 ```
 # Regresión logística
@@ -63,6 +64,47 @@ test_data <- test_data %>%
     Mediana  = ifelse(Category == "Medianas", 1, 0),
     Cara   = ifelse(Category == "Caras", 1, 0)
   )
+
+
+```
+
+## Modelo de regresión logística
+
+Para empezar, crearemos una nueva variable la cual indica si una variable es cara o no, esta será nuestra variable respuesta. Tabién analizaremos que variables numéricas aportan más a las variables respuestas (en este caso tomaremos tomaremos SalePrice como la variable respuesta ya que es lo que queremos predecir, sin embargo luego usaremos la nueva variable creada).
+
+```{r}
+training_data <- training_data %>%
+  mutate(
+    Expensive = ifelse(Category == "Caras", "Si", "No")
+  )
+test_data <- test_data %>%
+  mutate(
+    Expensive = ifelse(Category == "Caras", "Si", "No")
+  )
+
+training_data <- training_data %>% select(-Id) %>% mutate_if(is.character, as.factor)
+test_data <- test_data %>% mutate_if(is.character, as.factor)
+
+#Hallar las variables numéricas
+
+variables_numericas <- sapply(training_data, is.numeric)
+data_numericas <- training_data[, variables_numericas]
+
+matriz_cor <- cor(data_numericas, use = "complete.obs")
+corrplot(matriz_cor, 
+         method = "circle",     
+         type = "upper",        
+         tl.col = "black",      
+         tl.cex = 0.7,          
+         cl.cex = 0.7,          
+         diag = FALSE,          
+         mar = c(0,0,1,0))  
+```
+
+Vemos que SalePrice tiene una gran correlación con GRLivArea, GarageArea, OverallQual, X1stFlrSF, TotalBsmtSF, GarageCars, por lo que esas serán las únicas variables numéricas que utilizaremos para generar el modelo de regresión logística. 
+
+```{r}
+
 
 
 ```
