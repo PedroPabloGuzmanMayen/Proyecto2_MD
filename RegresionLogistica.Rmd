@@ -21,6 +21,7 @@ library(car)
 library(glmnet)
 library(pROC)
 library(MLmetrics)
+library(profvis)
 ```
 
 
@@ -341,3 +342,92 @@ if (test_error > (1.1 * train_error)) {
 ```
 
 El análisis de la diferencia entre los errores de prueba y entrenamiento revela que no hay evidencia clara de sobreajuste. El error en el conjunto de entrenamiento es de 3.72%, mientras que en el conjunto de prueba es de 3.87%, resultando en una diferencia de apenas 0.15 puntos porcentuales. Esta mínima diferencia indica que el modelo generaliza muy bien a datos no vistos. La conclusión es consistente con lo observado en las curvas de aprendizaje, confirmando que el modelo de regresión logística desarrollado es robusto y confiable para la clasificación de viviendas caras.
+
+```{r Paso 7}
+x_train_matrix <- as.matrix(X_train_scaled)
+
+set.seed(245)
+train_control_tune <- trainControl(
+  method = "cv",
+  number = 10,
+  classProbs = TRUE,
+  summaryFunction = twoClassSummary
+)
+
+alpha_grid <- seq(0, 1, by = 0.2) 
+lambda_grid <- 10^seq(-6, 2, length.out = 20)
+tuning_grid <- expand.grid(alpha = alpha_grid, lambda = lambda_grid)
+
+logistic_tuned <- train(
+  x = x_train_matrix,
+  y = factor(y_train, levels = c(0, 1), labels = c("No", "Si")),
+  method = "glmnet",
+  trControl = train_control_tune,
+  tuneGrid = tuning_grid,
+  metric = "ROC"
+)
+
+ggplot(logistic_tuned) +
+  ggtitle("Rendimiento del modelo según parámetros de regularización") +
+  xlab("Valor de lambda") +
+  ylab("AUC") +
+  theme_minimal()
+
+cat("Mejores parámetros del modelo regularizado:\n")
+cat("Alpha:", logistic_tuned$bestTune$alpha, "(0=Ridge, 1=Lasso)\n")
+cat("Lambda:", logistic_tuned$bestTune$lambda, "\n")
+```
+
+```{r Paso 8}
+start_time_original <- Sys.time()
+original_predictions <- predict(logistic_model, newdata = X_test_scaled, type = "raw")
+end_time_original <- Sys.time()
+time_original <- difftime(end_time_original, start_time_original, units = "secs")
+
+start_time_tuned <- Sys.time()
+tuned_predictions <- predict(logistic_tuned, newdata = X_test_scaled, type = "raw")
+end_time_tuned <- Sys.time()
+time_tuned <- difftime(end_time_tuned, start_time_tuned, units = "secs")
+
+conf_original <- confusionMatrix(original_predictions, factor(y_test, levels = c(0, 1), labels = c("No", "Si")))
+conf_tuned <- confusionMatrix(tuned_predictions, factor(y_test, levels = c(0, 1), labels = c("No", "Si")))
+
+performance_comparison <- data.frame(
+  Métrica = c("Tiempo de ejecución (s)", "Exactitud", "Sensibilidad", "Especificidad", 
+              "Falsos positivos", "Falsos negativos", "F1 Score"),
+  `Modelo Original` = c(
+    round(as.numeric(time_original), 4),
+    round(conf_original$overall["Accuracy"], 4),
+    round(conf_original$byClass["Sensitivity"], 4),
+    round(conf_original$byClass["Specificity"], 4),
+    conf_original$table[2, 1],
+    conf_original$table[1, 2],
+    round(conf_original$byClass["F1"], 4)
+  ),
+  `Modelo Tuneado` = c(
+    round(as.numeric(time_tuned), 4),
+    round(conf_tuned$overall["Accuracy"], 4),
+    round(conf_tuned$byClass["Sensitivity"], 4),
+    round(conf_tuned$byClass["Specificity"], 4),
+    conf_tuned$table[2, 1],
+    conf_tuned$table[1, 2],
+    round(conf_tuned$byClass["F1"], 4)
+  )
+)
+
+knitr::kable(performance_comparison, caption = "Comparación de rendimiento entre modelos")
+
+best_conf_matrix <- as.data.frame(conf_tuned$table)
+colnames(best_conf_matrix) <- c("Predicción", "Referencia", "Frecuencia")
+
+ggplot(data = best_conf_matrix, aes(x = Referencia, y = Predicción, fill = Frecuencia)) +
+  geom_tile() +
+  geom_text(aes(label = Frecuencia), color = "white", size = 5) +
+  scale_fill_gradient(low = "darkblue", high = "red") +
+  theme_minimal() +
+  labs(title = "Matriz de confusión - Modelo tuneado",
+       x = "Valor real",
+       y = "Valor predicho") +
+  theme(plot.title = element_text(hjust = 0.5, size = 14))
+```
+
