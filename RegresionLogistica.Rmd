@@ -22,6 +22,7 @@ library(glmnet)
 library(pROC)
 library(MLmetrics)
 library(nnet)
+library(profvis)
 ```
 
 
@@ -624,4 +625,7 @@ cat("   - Para modelos simples y rápidos: Naive Bayes\n")
 cat("   - Para visualización del proceso de decisión: Árbol de Clasificación\n")
 ```
 
-La comparación de todos los modelos implementados revela que Random Forest obtiene la mayor exactitud (98.1%), seguido por Regresión Logística Binaria (96.13%), Regresión Logística Multinomial (92.03%), KNN (88.6%), Árbol de Clasificación (88.2%) y finalmente Naive Bayes (74.7%). Sin embargo, la exactitud no debe ser el único criterio de selección. La regresión logística ofrece un excelente balance entre interpretabilidad y rendimiento, permitiendo entender qué factores influyen en la clasificación de viviendas caras, mientras que Random Forest, aunque más preciso, funciona como una "caja negra". Las recomendaciones finales dependen del objetivo: usar Random Forest para maximizar la exactitud, Regresión Logística para balancear exactitud e interpretabilidad, Naive Bayes para modelos simples y rápidos, y Árboles de Clasificación cuando sea importante visualizar el proceso de decisión.
+## Comparación con otros modelos
+
+
+La comparación de todos los modelos implementados revela que Random Forest obtiene la mayor exactitud (98.1%), seguido por Regresión Logística Binaria (96.13%), Regresión Logística Multinomial (92.03%), KNN (88.6%), Árbol de Clasificación (88.2%) y finalmente Naive Bayes (82%). Sin embargo, la exactitud no debe ser el único criterio de selección, el tiempo de ejecución de los algoritmos también debe jugar un papel clave en la elección del algoritmo ya que se necesita que el algoritmo realice predicciones en un tiempo aceptable y no demoré demasiado con una carga grande de información. Por esa razón, el mejor algoritmo hasta el momento han sido los de regresión logística, pues lograron alcanzar una precisión casi perfecta en sus predicciones con los datos de prueba y aparte de eso toman un tiempo menor en ejecutarse, el algoritmo Random forest presentó mayor 
