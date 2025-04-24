@@ -263,3 +263,142 @@ summary(resamps)
 
 bwplot(resamps, metric = "Accuracy")
 ```
+
+```{r Paso 5}
+pred_linear <- predict(svm_linear, newdata = X_test_scaled)
+pred_poly <- predict(svm_poly, newdata = X_test_scaled)
+pred_radial <- predict(svm_radial, newdata = X_test_scaled)
+pred_sigmoid <- predict(svm_sigmoid, newdata = X_test_scaled)
+
+pred_linear_prob <- predict(svm_linear, newdata = X_test_scaled, type = "prob")
+pred_poly_prob <- predict(svm_poly, newdata = X_test_scaled, type = "prob")
+pred_radial_prob <- predict(svm_radial, newdata = X_test_scaled, type = "prob")
+pred_sigmoid_prob <- predict(svm_sigmoid, newdata = X_test_scaled, type = "prob")
+
+acc_linear <- confusionMatrix(pred_linear, y_test)$overall["Accuracy"]
+acc_poly <- confusionMatrix(pred_poly, y_test)$overall["Accuracy"]
+acc_radial <- confusionMatrix(pred_radial, y_test)$overall["Accuracy"]
+acc_sigmoid <- confusionMatrix(pred_sigmoid, y_test)$overall["Accuracy"]
+
+accuracy_comparison <- data.frame(
+  Modelo = c("SVM Lineal", "SVM Polinomial", "SVM Radial", "SVM Sigmoide"),
+  Exactitud = c(acc_linear, acc_poly, acc_radial, acc_sigmoid),
+  Parámetros = c(
+    paste("C =", svm_linear$bestTune$C),
+    paste("C =", svm_poly$bestTune$C, ", grado =", svm_poly$bestTune$degree, ", escala =", svm_poly$bestTune$scale),
+    paste("C =", svm_radial$bestTune$C, ", sigma =", svm_radial$bestTune$sigma),
+    paste("C =", svm_sigmoid$bestTune$C, ", sigma =", svm_sigmoid$bestTune$sigma)
+  )
+)
+
+accuracy_comparison <- accuracy_comparison[order(-accuracy_comparison$Exactitud), ]
+
+print("Comparación de exactitud entre modelos:")
+print(accuracy_comparison)
+
+best_svm_model_name <- accuracy_comparison$Modelo[1]
+best_svm_model <- switch(
+  best_svm_model_name,
+  "SVM Lineal" = svm_linear,
+  "SVM Polinomial" = svm_poly,
+  "SVM Radial" = svm_radial,
+  "SVM Sigmoide" = svm_sigmoid
+)
+
+cat("El mejor modelo SVM es:", best_svm_model_name, "con una exactitud de", max(accuracy_comparison$Exactitud), "\n")
+
+ggplot(accuracy_comparison, aes(x = reorder(Modelo, Exactitud), y = Exactitud, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(Exactitud, 4)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de exactitud entre modelos SVM",
+       x = "Modelo",
+       y = "Exactitud") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r Paso 6}
+plot_confusion_matrix <- function(predicted, actual, title) {
+  cm <- confusionMatrix(predicted, actual)
+  cm_table <- as.data.frame(cm$table)
+  
+  p <- ggplot(data = cm_table, aes(x = Reference, y = Prediction, fill = Freq)) +
+    geom_tile() +
+    geom_text(aes(label = Freq), color = "white", size = 4) +
+    scale_fill_gradient(low = "darkblue", high = "red") +
+    labs(title = title,
+         x = "Categoría real",
+         y = "Categoría predicha") +
+    theme_minimal() +
+    theme(plot.title = element_text(hjust = 0.5, size = 14))
+  
+  cat("Métricas detalladas para", title, ":\n")
+  cat("Exactitud:", round(cm$overall["Accuracy"], 4), "\n")
+  cat("Kappa:", round(cm$overall["Kappa"], 4), "\n")
+  
+  cat("\nMétricas por clase:\n")
+  metrics_by_class <- data.frame(
+    Clase = rownames(cm$byClass),
+    Sensibilidad = round(cm$byClass[, "Sensitivity"], 4),
+    Especificidad = round(cm$byClass[, "Specificity"], 4),
+    Precisión = round(cm$byClass[, "Pos Pred Value"], 4),
+    F1 = round(cm$byClass[, "F1"], 4)
+  )
+  print(metrics_by_class)
+  
+  return(p)
+}
+
+cm_linear <- plot_confusion_matrix(pred_linear, y_test, "SVM Lineal")
+cm_poly <- plot_confusion_matrix(pred_poly, y_test, "SVM Polinomial")
+cm_radial <- plot_confusion_matrix(pred_radial, y_test, "SVM Radial")
+cm_sigmoid <- plot_confusion_matrix(pred_sigmoid, y_test, "SVM Sigmoide")
+
+print(cm_linear)
+print(cm_poly)
+print(cm_radial)
+print(cm_sigmoid)
+
+best_cm <- confusionMatrix(
+  switch(
+    best_svm_model_name,
+    "SVM Lineal" = pred_linear,
+    "SVM Polinomial" = pred_poly,
+    "SVM Radial" = pred_radial, 
+    "SVM Sigmoide" = pred_sigmoid
+  ), 
+  y_test
+)
+
+cat("\nAnálisis detallado del mejor modelo (", best_svm_model_name, "):\n")
+print(best_cm)
+
+for (cls in levels(y_test)) {
+  cat("\nMétricas para la clase", cls, ":\n")
+  
+  actual_binary <- y_test == cls
+  pred_binary <- switch(
+    best_svm_model_name,
+    "SVM Lineal" = pred_linear == cls,
+    "SVM Polinomial" = pred_poly == cls,
+    "SVM Radial" = pred_radial == cls,
+    "SVM Sigmoide" = pred_sigmoid == cls
+  )
+  
+  TP <- sum(pred_binary & actual_binary)
+  FP <- sum(pred_binary & !actual_binary)
+  FN <- sum(!pred_binary & actual_binary)
+  TN <- sum(!pred_binary & !actual_binary)
+  
+  sensitivity <- TP / (TP + FN)
+  specificity <- TN / (TN + FP)
+  precision <- TP / (TP + FP)
+  f1 <- 2 * precision * sensitivity / (precision + sensitivity)
+  
+  cat("Sensibilidad (Recall):", round(sensitivity, 4), "\n")
+  cat("Especificidad:", round(specificity, 4), "\n")
+  cat("Precisión:", round(precision, 4), "\n")
+  cat("F1 Score:", round(f1, 4), "\n")
+}
+```
+}
