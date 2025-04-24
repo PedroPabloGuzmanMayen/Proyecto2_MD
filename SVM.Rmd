@@ -165,3 +165,101 @@ ggplot(train_data, aes(x = Category, fill = Category)) +
        y = "Número de viviendas") +
   theme_minimal()
 ```
+
+```{r Paso 4 SVM con diferentes kernels}
+# variable respuesta 
+y_train <- train_data$Category
+y_test <- test_data$Category
+
+train_control <- trainControl(
+  method = "cv",
+  number = 5,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+# 1. Modelo SVM con kernel lineal
+system.time({
+  svm_linear <- train(
+    x = X_train_scaled,
+    y = y_train,
+    method = "svmLinear",
+    trControl = train_control,
+    tuneGrid = expand.grid(C = c(0.1, 1, 5, 10)),
+    metric = "Accuracy"
+  )
+})
+
+print("Resultados del modelo SVM con kernel lineal:")
+print(svm_linear)
+print(svm_linear$bestTune)
+
+# 2. Modelo SVM con kernel polinomial
+system.time({
+  svm_poly <- train(
+    x = X_train_scaled,
+    y = y_train,
+    method = "svmPoly",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+      C = c(0.1, 1, 5),
+      degree = c(2, 3),
+      scale = c(0.1, 1)
+    ),
+    metric = "Accuracy"
+  )
+})
+
+print("Resultados del modelo SVM con kernel polinomial:")
+print(svm_poly)
+print(svm_poly$bestTune)
+
+# 3. Modelo SVM con kernel radial (RBF)
+system.time({
+  svm_radial <- train(
+    x = X_train_scaled,
+    y = y_train,
+    method = "svmRadial",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+      C = c(0.1, 1, 5, 10),
+      sigma = c(0.01, 0.1, 0.5)
+    ),
+    metric = "Accuracy"
+  )
+})
+
+print("Resultados del modelo SVM con kernel radial:")
+print(svm_radial)
+print(svm_radial$bestTune)
+
+# 4. Modelo SVM con kernel sigmoide
+system.time({
+  svm_sigmoid <- train(
+    x = X_train_scaled,
+    y = y_train,
+    method = "svmRadialSigma",
+    trControl = train_control,
+    tuneGrid = expand.grid(
+      C = c(0.1, 1, 5),
+      sigma = c(0.01, 0.1, 0.5)
+    ),
+    metric = "Accuracy"
+  )
+})
+
+print("Resultados del modelo SVM con kernel sigmoide:")
+print(svm_sigmoid)
+print(svm_sigmoid$bestTune)
+
+resamps <- resamples(list(
+  Linear = svm_linear,
+  Polynomial = svm_poly,
+  Radial = svm_radial,
+  Sigmoid = svm_sigmoid
+))
+
+summary(resamps)
+
+bwplot(resamps, metric = "Accuracy")
+```
