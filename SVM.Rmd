@@ -1,0 +1,53 @@
+---
+title: "SVM"
+author: "Gustavo Cruz; Pedro Guzman"
+date: "2025-04-24"
+output: html_document
+---
+
+## Repositorio (revisar branch SVM)
+
+https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
+```{r Chunk de librerias}
+# Chunk para librerias
+library(tidyverse)
+library(caret)
+library(e1071)  
+library(kernlab)
+library(MLmetrics)
+library(pROC)
+library(ggplot2)
+```
+
+```{r Paso 1}
+train <- read.csv("train.csv")
+
+set.seed(8787)
+porciento <- 0.7
+corte <- sample(nrow(train), nrow(train) * porciento)
+train_data <- train[corte, ]
+test_data <- train[-corte, ]
+
+cat("Dimensiones conjunto de entrenamiento:", dim(train_data), "\n")
+cat("Dimensiones conjunto de prueba:", dim(test_data), "\n")
+```
+
+```{r Paso 2}
+# Aqui vamos a usar las mismas variables predictivas de los anteriores labs
+numeric_vars <- c("OverallQual", "GrLivArea", "GarageCars", "TotalBsmtSF", 
+                 "FullBath", "YearBuilt", "YearRemodAdd", "Fireplaces",
+                 "BsmtFinSF1", "LotArea", "MasVnrArea", "WoodDeckSF")
+
+categorical_vars <- c("Neighborhood", "ExterQual", "KitchenQual", "BsmtQual", 
+                     "GarageFinish", "Foundation", "MSZoning", "CentralAir")
+
+na_count <- colSums(is.na(train_data[, c(numeric_vars, categorical_vars)]))
+print("Valores NA en variables predictoras:")
+print(na_count[na_count > 0])
+
+```
