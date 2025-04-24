@@ -57,7 +57,7 @@ for(var in numeric_vars) {
   }
   
   if(sum(is.na(test_data[[var]])) > 0) {
-    median_value <- median(train_data[[var]], na.rm = TRUE)  # Usamos la mediana del conjunto de entrenamiento
+    median_value <- median(train_data[[var]], na.rm = TRUE) 
     test_data[[var]][is.na(test_data[[var]])] <- median_value
   }
 }
@@ -69,7 +69,7 @@ for(var in categorical_vars) {
   }
   
   if(sum(is.na(test_data[[var]])) > 0) {
-    mode_value <- names(sort(table(train_data[[var]]), decreasing = TRUE))[1]  # Usamos el modo del conjunto de entrenamiento
+    mode_value <- names(sort(table(train_data[[var]]), decreasing = TRUE))[1]  
     test_data[[var]][is.na(test_data[[var]])] <- mode_value
   }
   
@@ -78,24 +78,19 @@ for(var in categorical_vars) {
   test_data[[var]] <- factor(test_data[[var]], levels = all_levels)
 }
 
-# Codificación de variables categóricas
 predictors_cat <- train_data[, categorical_vars]
 dummies <- dummyVars(~ ., data = predictors_cat, fullRank = TRUE)
 predictors_cat_encoded <- predict(dummies, predictors_cat)
 
-# Preparación del conjunto de entrenamiento
 X_train <- cbind(train_data[, numeric_vars], predictors_cat_encoded)
 
-# Normalización (importante para SVM)
 preproc <- preProcess(X_train, method = c("center", "scale"))
 X_train_scaled <- predict(preproc, X_train)
 
-# Preparación del conjunto de prueba
 predictors_cat_test <- test_data[, categorical_vars]
 predictors_cat_test_encoded <- predict(dummies, predictors_cat_test)
 X_test <- cbind(test_data[, numeric_vars], predictors_cat_test_encoded)
 
-# Asegurar que X_test tiene las mismas columnas que X_train
 train_cols <- colnames(X_train)
 test_cols <- colnames(X_test)
 
@@ -115,11 +110,9 @@ if(length(missing_in_train) > 0) {
 X_test <- X_test[, colnames(X_train)]
 X_test_scaled <- predict(preproc, X_test)
 
-# Verificar ausencia de NA después de las transformaciones
 cat("NAs en X_train_scaled después de transformaciones:", sum(is.na(X_train_scaled)), "\n")
 cat("NAs en X_test_scaled después de transformaciones:", sum(is.na(X_test_scaled)), "\n")
 
-# Análisis de la distribución de los datos
 summary_stats <- data.frame(
   Variable = names(train_data[, numeric_vars]),
   Min = sapply(train_data[, numeric_vars], min, na.rm = TRUE),
@@ -131,10 +124,44 @@ summary_stats <- data.frame(
 print("Estadísticas descriptivas de variables numéricas:")
 print(summary_stats)
 
-# Visualizar distribución de algunas variables clave
 par(mfrow=c(2,2))
 hist(train_data$GrLivArea, main="Distribución de área habitable", xlab="Área (pies²)")
 hist(train_data$OverallQual, main="Distribución de calidad general", xlab="Calidad (1-10)")
 hist(train_data$TotalBsmtSF, main="Distribución de área de sótano", xlab="Área (pies²)")
 hist(train_data$SalePrice, main="Distribución del precio de venta", xlab="Precio ($)")
+```
+
+```{r Paso 3}
+mean_price <- mean(train_data$SalePrice, na.rm = TRUE)
+sd_price <- sd(train_data$SalePrice, na.rm = TRUE)
+lower_limit <- median(train_data$SalePrice)
+upper_limit <- mad(train_data$SalePrice)
+
+train_data$Category <- ifelse(train_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                       ifelse(train_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+test_data$Category <- ifelse(test_data$SalePrice < (lower_limit - upper_limit), "Baratas",
+                      ifelse(test_data$SalePrice > (lower_limit + upper_limit), "Caras", "Medianas"))
+
+train_categories <- table(train_data$Category)
+test_categories <- table(test_data$Category)
+
+print("Distribución de categorías en conjunto de entrenamiento:")
+print(train_categories)
+print(paste("Porcentajes:", round(100*train_categories/sum(train_categories), 2), "%"))
+
+print("Distribución de categorías en conjunto de prueba:")
+print(test_categories)
+print(paste("Porcentajes:", round(100*test_categories/sum(test_categories), 2), "%"))
+
+train_data$Category <- factor(train_data$Category, levels = c("Baratas", "Medianas", "Caras"))
+test_data$Category <- factor(test_data$Category, levels = c("Baratas", "Medianas", "Caras"))
+
+ggplot(train_data, aes(x = Category, fill = Category)) +
+  geom_bar() +
+  scale_fill_manual(values = c("Baratas" = "blue", "Medianas" = "green", "Caras" = "red")) +
+  labs(title = "Distribución de categorías de precio",
+       x = "Categoría",
+       y = "Número de viviendas") +
+  theme_minimal()
 ```
