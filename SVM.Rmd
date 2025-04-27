@@ -712,7 +712,111 @@ cat("4. **Importancia de los errores**: Considerando el costo ponderado de los e
     "con", min(costo_total$Costo_Total), "unidades de costo.\n\n")
 ```
 
-## Analisis
+```{r Paso 9}
+comparacion_manual <- data.frame(
+  Algoritmo = c(
+    best_svm_model_name,  # El mejor modelo SVM
+    "Regresión Logística Binaria", 
+    "Regresión Logística Multinomial", 
+    "KNN", 
+    "Naive Bayes",
+    "Árbol de Clasificación",
+    "Random Forest"
+  ),
+  Exactitud = c(
+    max(accuracy_comparison$Exactitud),  
+    0.9613,   
+    0.9203,   
+    0.8860,   
+    0.7470,   
+    0.8820,   
+    0.9810    
+  ),
+  Tiempo_relativo = c(
+    "Medio",  
+    "Medio",   
+    "Alto",    
+    "Medio",   
+    "Bajo",    
+    "Medio",   
+    "Alto"     
+  ),
+  Interpretabilidad = c(
+    "Media",  
+    "Alta",    
+    "Media",   
+    "Baja",    
+    "Media",   
+    "Alta",    
+    "Baja"     
+  )
+)
+
+comparacion_manual <- comparacion_manual[order(-comparacion_manual$Exactitud),]
+
+tiempo_numerico <- function(tiempo) {
+  switch(tiempo,
+         "Bajo" = 1,
+         "Medio" = 2,
+         "Alto" = 3,
+         2)
+}
+
+comparacion_manual$Tiempo_numerico <- sapply(comparacion_manual$Tiempo_relativo, tiempo_numerico)
+
+ggplot(comparacion_manual, aes(x = reorder(Algoritmo, Exactitud), y = Exactitud, fill = Algoritmo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(Exactitud, 3)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de exactitud entre algoritmos",
+       x = "Algoritmo",
+       y = "Exactitud") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(comparacion_manual, aes(x = reorder(Algoritmo, -Tiempo_numerico), y = Tiempo_numerico, fill = Algoritmo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = Tiempo_relativo), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de tiempo de ejecución entre algoritmos",
+       x = "Algoritmo",
+       y = "Tiempo relativo") +
+  scale_y_continuous(breaks = 1:3, labels = c("Bajo", "Medio", "Alto")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggplot(comparacion_manual, aes(x = Tiempo_numerico, y = Exactitud, color = Algoritmo)) +
+  geom_point(size = 4) +
+  geom_text(aes(label = Algoritmo), hjust = -0.2, vjust = 0) +
+  labs(title = "Exactitud vs Tiempo de ejecución",
+       x = "Tiempo relativo",
+       y = "Exactitud") +
+  scale_x_continuous(breaks = 1:3, labels = c("Bajo", "Medio", "Alto")) +
+  theme_minimal()
+
+mejor_algoritmo <- comparacion_manual$Algoritmo[which.max(comparacion_manual$Exactitud)]
+mas_rapido <- comparacion_manual$Algoritmo[comparacion_manual$Tiempo_relativo == "Bajo"][1]
+
+cat("\n## Comparación con otros algoritmos\n\n")
+cat("1. **Mejor algoritmo para predicción**: ", mejor_algoritmo, 
+    "con una exactitud de", max(comparacion_manual$Exactitud), ".\n\n")
+
+cat("2. **Algoritmo más rápido**: ", mas_rapido,
+    "con un tiempo de ejecución relativo bajo.\n\n")
+
+cat("3. **Análisis costo-beneficio**: Analizando la relación entre exactitud y tiempo de procesamiento, ",
+    "podemos ver que Random Forest ofrece la mayor exactitud (0.981) pero con un tiempo de ejecución alto. ",
+    "La Regresión Logística Binaria proporciona un excelente balance con una exactitud de 0.9613 y tiempo medio. ",
+    "El modelo SVM ", best_svm_model_name, " alcanzó una exactitud de ", 
+    round(max(accuracy_comparison$Exactitud), 4), ", colocándose en una posición intermedia.\n\n")
+
+cat("4. **Interpretabilidad vs. Rendimiento**: Los modelos con mayor interpretabilidad (Regresión Logística Binaria ",
+    "y Árbol de Clasificación) también ofrecen un buen rendimiento, lo que los hace atractivos para explicar ",
+    "las decisiones del modelo. SVM proporciona un balance entre interpretabilidad y rendimiento.\n\n")
+
+cat("5. **Posicionamiento del modelo SVM**: El modelo SVM ", best_svm_model_name, 
+    " se sitúa en la posición ", which(comparacion_manual$Algoritmo == best_svm_model_name), 
+    " en términos de exactitud entre los 7 modelos comparados.\n\n")
+```
+
 
 ```{r Paso 10}
 set.seed(8787)
@@ -878,5 +982,73 @@ ggplot(datos_residuos, aes(x = Residuo)) +
        x = "Residuo ($)",
        y = "Frecuencia") +
   theme_minimal()
+```
+
+```{r Paso 11}
+mejor_modelo_reg_nombre <- resultados_regresion$Modelo[1]
+mejor_rmse <- resultados_regresion$RMSE[1]
+mejor_r2 <- resultados_regresion$R2[1]
+
+comparacion_regresion_cualitativa <- data.frame(
+  Algoritmo = c(
+    mejor_modelo_reg_nombre,
+    "Regresión Lineal", 
+    "Árbol de Regresión", 
+    "Random Forest (Regresión)", 
+    "KNN (Regresión)"
+  ),
+  Exactitud_Relativa = c(
+    "Media",  
+    "Media",  
+    "Media-Alta",  
+    "Alta",   
+    "Media"  
+  ),
+  Tiempo_Relativo = c(
+    "Medio-Alto",  
+    "Bajo",        
+    "Medio",       
+    "Alto",       
+    "Medio"        
+  ),
+  Interpretabilidad = c(
+    "Media",     
+    "Alta",      
+    "Media-Alta", 
+    "Baja",      
+    "Baja"       
+  )
+)
+
+
+cat("\n## Comparación con otros modelos de regresión\n\n")
+cat("Basándonos en las estimaciones cualitativas y la comparación con los modelos anteriores:\n\n")
+
+cat("1. **Exactitud predictiva**: Random Forest generalmente ofrece la mayor precisión en términos de RMSE y R², ",
+    "seguido por los modelos de Árbol de Regresión. El modelo SVM ", mejor_modelo_reg_nombre, " muestra un ",
+    "rendimiento competitivo con un RMSE de ", round(mejor_rmse), " y R² de ", round(mejor_r2, 3), ".\n\n")
+
+cat("2. **Eficiencia computacional**: La Regresión Lineal destaca por su velocidad de ejecución, ",
+    "mientras que Random Forest y SVM tienden a requerir más tiempo de procesamiento debido a su ",
+    "mayor complejidad algorítmica.\n\n")
+
+cat("3. **Interpretabilidad del modelo**: La Regresión Lineal proporciona coeficientes directamente ",
+    "interpretables, mientras que los modelos de árbol ofrecen reglas de decisión visualizables. ",
+    "SVM y KNN son menos transparentes en términos de cómo generan sus predicciones.\n\n")
+
+cat("4. **Balance general**: ", 
+    "Si bien Random Forest suele ofrecer la mejor precisión, la Regresión Lineal proporciona un excelente ",
+    "balance entre interpretabilidad, velocidad y exactitud razonable. El modelo SVM ", mejor_modelo_reg_nombre, 
+    " se posiciona como una alternativa de rendimiento medio-alto con capacidades de modelado no lineal.\n\n")
+
+cat("5. **Recomendaciones según el contexto**:\n",
+    "   - Para aplicaciones que requieren alta interpretabilidad: Regresión Lineal o Árbol de Regresión\n",
+    "   - Para máxima precisión predictiva: Random Forest\n",
+    "   - Para un equilibrio entre capacidad no lineal y rendimiento: SVM con kernel ", gsub("SVM ", "", mejor_modelo_reg_nombre), "\n",
+    "   - Para rapidez de ejecución: Regresión Lineal\n\n")
+
+cat("El modelo SVM ", mejor_modelo_reg_nombre, " generado en este análisis representa una alternativa competitiva ",
+    "para la predicción de precios de viviendas, especialmente cuando se busca capturar relaciones no lineales ",
+    "entre las características de las propiedades y su valor de mercado.\n\n")
 ```
 
