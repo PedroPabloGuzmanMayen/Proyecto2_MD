@@ -580,44 +580,38 @@ El análisis de sobreajuste muestra diferencias entre la exactitud de entrenamie
 El gráfico del efecto de los parámetros en el modelo SVM Sigmoide muestra claramente que la combinación de un valor sigma bajo (0.01) con diversos valores de C produce los mejores resultados (puntos rojos más grandes). Observamos que valores altos de sigma (0.5) consistentemente producen menor exactitud independientemente del valor de C. Esto indica que el modelo funciona mejor cuando la influencia de cada punto de entrenamiento se extiende a una región más amplia (sigma bajo), permitiendo capturar patrones más generales en los datos, en lugar de adaptarse excesivamente a casos específicos.
 
 ```{r Paso 8}
-# Medir tiempos de ejecución para predicción
 tiempos_prediccion <- data.frame(
   Modelo = c("SVM Lineal", "SVM Polinomial", "SVM Radial", "SVM Sigmoide"),
   Tiempo_segundos = numeric(4)
 )
 
-# Medir tiempo para SVM Lineal
 tiempo_lineal <- system.time({
   pred_linear <- predict(svm_linear, newdata = X_test_scaled)
 })
 tiempos_prediccion$Tiempo_segundos[1] <- tiempo_lineal[3]
 
-# Medir tiempo para SVM Polinomial
 tiempo_poly <- system.time({
   pred_poly <- predict(svm_poly, newdata = X_test_scaled)
 })
 tiempos_prediccion$Tiempo_segundos[2] <- tiempo_poly[3]
 
-# Medir tiempo para SVM Radial
 tiempo_radial <- system.time({
   pred_radial <- predict(svm_radial, newdata = X_test_scaled)
 })
 tiempos_prediccion$Tiempo_segundos[3] <- tiempo_radial[3]
 
-# Medir tiempo para SVM Sigmoide
 tiempo_sigmoid <- system.time({
   pred_sigmoid <- predict(svm_sigmoid, newdata = X_test_scaled)
 })
 tiempos_prediccion$Tiempo_segundos[4] <- tiempo_sigmoid[3]
 
-# Crear tabla con tiempos de ejecución totales
 tiempos_ejecucion <- data.frame(
   Modelo = c("SVM Lineal", "SVM Polinomial", "SVM Radial", "SVM Sigmoide"),
   Tiempo_Prediccion = tiempos_prediccion$Tiempo_segundos,
   Tiempo_Total = tiempos_prediccion$Tiempo_segundos  # Por ahora solo usamos tiempos de predicción
 )
 
-# Visualizar los tiempos de ejecución
+# tiempos de ejecución
 ggplot(tiempos_ejecucion, aes(x = Modelo, y = Tiempo_Total, fill = Modelo)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = round(Tiempo_Total, 1)), vjust = -0.5, size = 3.5) +
@@ -627,7 +621,7 @@ ggplot(tiempos_ejecucion, aes(x = Modelo, y = Tiempo_Total, fill = Modelo)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Análisis de errores por categoría
+# errores por categoría
 modelos <- list(
   "SVM Lineal" = pred_linear,
   "SVM Polinomial" = pred_poly,
@@ -641,7 +635,6 @@ for (modelo_nombre in names(modelos)) {
   pred <- modelos[[modelo_nombre]]
   
   for (categoria in levels(y_test)) {
-    # Filtrar solo las instancias de esta categoría
     indices_categoria <- which(y_test == categoria)
     total_categoria <- length(indices_categoria)
     errores_categoria <- sum(pred[indices_categoria] != y_test[indices_categoria])
@@ -657,7 +650,6 @@ for (modelo_nombre in names(modelos)) {
   }
 }
 
-# Visualizar errores por categoría
 ggplot(errores_por_categoria, aes(x = Categoria, y = Tasa_Error, fill = Modelo)) +
   geom_bar(stat = "identity", position = "dodge") +
   geom_text(aes(label = sprintf("%.1f%%", Tasa_Error * 100)), 
@@ -670,8 +662,6 @@ ggplot(errores_por_categoria, aes(x = Categoria, y = Tasa_Error, fill = Modelo))
   scale_y_continuous(labels = scales::percent) +
   theme_minimal()
 
-# Análisis de la importancia de los errores
-# Podemos considerar el costo de los errores según el tipo de clasificación errónea
 matrix_costo <- matrix(c(
   0, 1, 2,  # Costo de error para casas baratas (0=acierto, 1=mediana, 2=cara)
   1, 0, 1,  # Costo de error para casas medianas
@@ -683,10 +673,8 @@ costo_total <- data.frame()
 for (modelo_nombre in names(modelos)) {
   pred <- modelos[[modelo_nombre]]
   
-  # Crear matriz de confusión
   cm <- table(Predicted = pred, Actual = y_test)
   
-  # Calcular costo ponderado de los errores
   costo_ponderado <- sum(cm * matrix_costo)
   
   costo_total <- rbind(costo_total, data.frame(
@@ -695,7 +683,6 @@ for (modelo_nombre in names(modelos)) {
   ))
 }
 
-# Visualizar costo total de errores
 ggplot(costo_total, aes(x = Modelo, y = Costo_Total, fill = Modelo)) +
   geom_bar(stat = "identity") +
   geom_text(aes(label = Costo_Total), vjust = -0.5, size = 3.5) +
@@ -705,7 +692,6 @@ ggplot(costo_total, aes(x = Modelo, y = Costo_Total, fill = Modelo)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-# Resumen de la comparación
 cat("\n## Resumen de la comparación de modelos SVM\n\n")
 cat("1. **Efectividad**: El modelo", best_svm_model_name, "tiene la mejor exactitud con", 
     round(max(accuracy_comparison$Exactitud), 4), "seguido de cerca por los modelos", 
@@ -724,5 +710,173 @@ cat("3. **Análisis de errores**: La categoría con mayor tasa de error en todos
 cat("4. **Importancia de los errores**: Considerando el costo ponderado de los errores, ",
     "el modelo con menor costo total es", costo_total$Modelo[which.min(costo_total$Costo_Total)], 
     "con", min(costo_total$Costo_Total), "unidades de costo.\n\n")
+```
+
+## Analisis
+
+```{r Paso 10}
+set.seed(8787)
+
+y_train_reg <- train_data$SalePrice
+y_test_reg <- test_data$SalePrice
+
+train_control_reg <- trainControl(
+  method = "cv",
+  number = 5
+)
+
+system.time({
+  svm_reg_linear <- train(
+    x = X_train_scaled,
+    y = y_train_reg,
+    method = "svmLinear",
+    trControl = train_control_reg,
+    tuneGrid = expand.grid(C = c(0.1, 1, 5, 10)),
+    metric = "RMSE"
+  )
+})
+
+system.time({
+  svm_reg_radial <- train(
+    x = X_train_scaled,
+    y = y_train_reg,
+    method = "svmRadial",
+    trControl = train_control_reg,
+    tuneGrid = expand.grid(
+      C = c(0.1, 1, 5, 10),
+      sigma = c(0.01, 0.1, 0.5)
+    ),
+    metric = "RMSE"
+  )
+})
+
+system.time({
+  svm_reg_poly <- train(
+    x = X_train_scaled,
+    y = y_train_reg,
+    method = "svmPoly",
+    trControl = train_control_reg,
+    tuneGrid = expand.grid(
+      C = c(0.1, 1, 5),
+      degree = c(2, 3),
+      scale = c(0.1, 1)
+    ),
+    metric = "RMSE"
+  )
+})
+
+print("Resultados del modelo SVM lineal para regresión:")
+print(svm_reg_linear)
+print(svm_reg_linear$bestTune)
+
+print("Resultados del modelo SVM radial para regresión:")
+print(svm_reg_radial)
+print(svm_reg_radial$bestTune)
+
+print("Resultados del modelo SVM polinomial para regresión:")
+print(svm_reg_poly)
+print(svm_reg_poly$bestTune)
+
+pred_reg_linear <- predict(svm_reg_linear, newdata = X_test_scaled)
+pred_reg_radial <- predict(svm_reg_radial, newdata = X_test_scaled)
+pred_reg_poly <- predict(svm_reg_poly, newdata = X_test_scaled)
+
+rmse_linear <- sqrt(mean((pred_reg_linear - y_test_reg)^2))
+rmse_radial <- sqrt(mean((pred_reg_radial - y_test_reg)^2))
+rmse_poly <- sqrt(mean((pred_reg_poly - y_test_reg)^2))
+
+mae_linear <- mean(abs(pred_reg_linear - y_test_reg))
+mae_radial <- mean(abs(pred_reg_radial - y_test_reg))
+mae_poly <- mean(abs(pred_reg_poly - y_test_reg))
+
+r2_linear <- 1 - sum((y_test_reg - pred_reg_linear)^2) / sum((y_test_reg - mean(y_test_reg))^2)
+r2_radial <- 1 - sum((y_test_reg - pred_reg_radial)^2) / sum((y_test_reg - mean(y_test_reg))^2)
+r2_poly <- 1 - sum((y_test_reg - pred_reg_poly)^2) / sum((y_test_reg - mean(y_test_reg))^2)
+
+resultados_regresion <- data.frame(
+  Modelo = c("SVM Lineal", "SVM Radial", "SVM Polinomial"),
+  RMSE = c(rmse_linear, rmse_radial, rmse_poly),
+  MAE = c(mae_linear, mae_radial, mae_poly),
+  R2 = c(r2_linear, r2_radial, r2_poly)
+)
+
+resultados_regresion <- resultados_regresion[order(resultados_regresion$RMSE),]
+
+print("Comparación de modelos de regresión SVM:")
+print(resultados_regresion)
+
+ggplot(resultados_regresion, aes(x = reorder(Modelo, -RMSE), y = RMSE, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(RMSE, 0)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de RMSE entre modelos de regresión SVM",
+       x = "Modelo",
+       y = "RMSE") +
+  theme_minimal()
+
+ggplot(resultados_regresion, aes(x = reorder(Modelo, R2), y = R2, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = round(R2, 3)), vjust = -0.5, size = 3.5) +
+  labs(title = "Comparación de R² entre modelos de regresión SVM",
+       x = "Modelo",
+       y = "R²") +
+  theme_minimal()
+
+mejor_modelo_reg <- resultados_regresion$Modelo[1]
+mejor_rmse <- resultados_regresion$RMSE[1]
+mejor_r2 <- resultados_regresion$R2[1]
+
+cat("\n## Modelo de regresión SVM\n\n")
+cat("El mejor modelo de regresión es", mejor_modelo_reg, 
+    "con un RMSE de", round(mejor_rmse, 2), 
+    "y un R² de", round(mejor_r2, 3), ".\n\n")
+
+mejor_svm_reg <- switch(
+  mejor_modelo_reg,
+  "SVM Lineal" = svm_reg_linear,
+  "SVM Radial" = svm_reg_radial,
+  "SVM Polinomial" = svm_reg_poly
+)
+
+mejor_pred_reg <- switch(
+  mejor_modelo_reg,
+  "SVM Lineal" = pred_reg_linear,
+  "SVM Radial" = pred_reg_radial,
+  "SVM Polinomial" = pred_reg_poly
+)
+
+datos_prediccion <- data.frame(
+  Real = y_test_reg,
+  Predicho = mejor_pred_reg
+)
+
+ggplot(datos_prediccion, aes(x = Real, y = Predicho)) +
+  geom_point(alpha = 0.5, color = "blue") +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = paste("Valores reales vs. predichos -", mejor_modelo_reg),
+       x = "Precio real ($)",
+       y = "Precio predicho ($)") +
+  theme_minimal()
+
+residuos <- y_test_reg - mejor_pred_reg
+datos_residuos <- data.frame(
+  Predicho = mejor_pred_reg,
+  Residuo = residuos
+)
+
+ggplot(datos_residuos, aes(x = Predicho, y = Residuo)) +
+  geom_point(alpha = 0.5) +
+  geom_hline(yintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Análisis de residuos",
+       x = "Valor predicho ($)",
+       y = "Residuo ($)") +
+  theme_minimal()
+
+ggplot(datos_residuos, aes(x = Residuo)) +
+  geom_histogram(bins = 30, fill = "blue", alpha = 0.7) +
+  geom_vline(xintercept = 0, color = "red", linetype = "dashed") +
+  labs(title = "Distribución de residuos",
+       x = "Residuo ($)",
+       y = "Frecuencia") +
+  theme_minimal()
 ```
 
