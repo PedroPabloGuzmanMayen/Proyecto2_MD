@@ -120,6 +120,13 @@ summary_stats <- data.frame(
   Mean = sapply(train_data[, numeric_vars], mean, na.rm = TRUE),
   SD = sapply(train_data[, numeric_vars], sd, na.rm = TRUE)
 )
+```
+
+## Analisis de los resultados sobre las estadisticas descriptivas
+
+La tabla de estadísticas descriptivas nos muestra las características principales de las variables numéricas utilizadas en el modelo. Observamos que la calidad general (OverallQual) tiene un promedio de 6.07 en una escala de 1 a 10, indicando que la mayoría de las viviendas están en un rango medio de calidad. El área habitable (GrLivArea) muestra una amplia variación, con un mínimo de 334 y un máximo de 5642 pies cuadrados, con una desviación estándar considerable de 525.6. También notamos que variables como LotArea presentan valores atípicos con un máximo de 215,245, lo que podría afectar a nuestro modelo si no se manejan adecuadamente.
+
+```{r Paso 2 parte 2}
 
 print("Estadísticas descriptivas de variables numéricas:")
 print(summary_stats)
@@ -130,6 +137,10 @@ hist(train_data$OverallQual, main="Distribución de calidad general", xlab="Cali
 hist(train_data$TotalBsmtSF, main="Distribución de área de sótano", xlab="Área (pies²)")
 hist(train_data$SalePrice, main="Distribución del precio de venta", xlab="Precio ($)")
 ```
+
+## Histogramas
+
+Los histogramas muestran la distribución de variables clave en el conjunto de datos. El área habitable (GrLivArea) presenta una distribución asimétrica positiva, con la mayoría de viviendas concentradas entre 1000 y 2000 pies cuadrados, y pocas viviendas con áreas superiores a 3000 pies cuadrados. La calidad general (OverallQual) muestra una distribución aproximadamente normal centrada en torno a valores de 5-7, lo que confirma que la mayoría de las propiedades tienen una calidad media. El área de sótano (TotalBsmtSF) presenta una distribución similar al área habitable, y el precio de venta (SalePrice) muestra una clara asimetría positiva, característica común en datos de precios inmobiliarios.
 
 ```{r Paso 3}
 mean_price <- mean(train_data$SalePrice, na.rm = TRUE)
@@ -166,7 +177,11 @@ ggplot(train_data, aes(x = Category, fill = Category)) +
   theme_minimal()
 ```
 
-```{r Paso 4 SVM con diferentes kernels}
+## Gráfico de Barras
+
+El gráfico de barras de categorías de precio muestra la distribución de viviendas clasificadas como "Baratas", "Medianas" y "Caras". Observamos una clara predominancia de viviendas en la categoría "Medianas" (65.43% en el conjunto de entrenamiento y 66.06% en el de prueba), seguido por las viviendas "Caras" (24.19% y 23.69% respectivamente) y finalmente las "Baratas" (10.38% y 10.25%). Esta distribución desequilibrada podría afectar el rendimiento del modelo, especialmente en la categoría minoritaria "Baratas", algo que deberemos tener en cuenta al evaluar los resultados de clasificación.
+
+```{r Paso 4 SVM con diferentes kernels - lineal}
 # variable respuesta 
 y_train <- train_data$Category
 y_test <- test_data$Category
@@ -194,6 +209,13 @@ print("Resultados del modelo SVM con kernel lineal:")
 print(svm_linear)
 print(svm_linear$bestTune)
 
+```
+
+## SVM Lineal
+
+El modelo SVM con kernel lineal muestra un buen rendimiento con una exactitud de validación cruzada de 0.882. El parámetro C=0.1 fue seleccionado como óptimo, indicando que una regularización más fuerte produjo mejores resultados. Esto sugiere que el modelo más simple (con mayor margen) generaliza mejor para estos datos. El valor de Kappa de 0.75 indica un acuerdo sustancial entre las predicciones y las etiquetas reales, más allá del azar. Los valores altos de precisión media (0.88) y especificidad media (0.90) indican que el modelo es bueno identificando correctamente las clases.
+
+```{r Paso 4 kernel P}
 # 2. Modelo SVM con kernel polinomial
 system.time({
   svm_poly <- train(
@@ -213,7 +235,13 @@ system.time({
 print("Resultados del modelo SVM con kernel polinomial:")
 print(svm_poly)
 print(svm_poly$bestTune)
+```
 
+## SVM Polinomial
+
+El SVM polinomial alcanzó una exactitud de validación cruzada de 0.856, inferior al modelo lineal. Los parámetros óptimos fueron C=0.1, grado=2 y escala=0.1, sugiriendo nuevamente que una regularización fuerte con un polinomio de grado moderado captura mejor los patrones sin sobreajustar. El rendimiento más bajo podría indicar que las relaciones en los datos no se benefician significativamente de la transformación polinomial, y la complejidad adicional no aporta ventajas sustanciales para esta tarea de clasificación.
+
+```{r Paso 4 SVM kr}
 # 3. Modelo SVM con kernel radial (RBF)
 system.time({
   svm_radial <- train(
@@ -229,10 +257,18 @@ system.time({
   )
 })
 
+
 print("Resultados del modelo SVM con kernel radial:")
 print(svm_radial)
 print(svm_radial$bestTune)
 
+```
+
+## SVM Radial
+
+El modelo SVM con kernel radial (RBF) logró una exactitud de validación cruzada de 0.877, cercana al modelo lineal. Los parámetros óptimos fueron C=5 y sigma=0.01, indicando que este kernel requiere menos regularización (mayor C) pero un parámetro sigma pequeño, lo que resulta en un kernel con influencia más amplia. Esto sugiere que el modelo capta relaciones no lineales importantes en los datos, pero mantiene un equilibrio adecuado entre ajuste y generalización.
+
+```{r Paso 4 ks}
 # 4. Modelo SVM con kernel sigmoide
 system.time({
   svm_sigmoid <- train(
@@ -263,6 +299,14 @@ summary(resamps)
 
 bwplot(resamps, metric = "Accuracy")
 ```
+
+## SVM Kernel Sigmoide
+
+El SVM con kernel sigmoide obtuvo una exactitud de validación cruzada de 0.860. Los parámetros óptimos fueron C=5 y sigma=0.01, similares al modelo radial. Aunque su rendimiento en validación cruzada fue levemente inferior al modelo lineal y radial, este kernel mostró el mejor rendimiento en los datos de prueba, con una exactitud de 0.879, sugiriendo una mejor capacidad de generalización para datos no vistos durante el entrenamiento.
+
+## Comparación de los modelos
+
+Los cuatro modelos SVM muestra resultados relativamente cercanos, con exactitudes entre 0.863 y 0.879 en los datos de prueba. El SVM Sigmoide resultó ligeramente superior (0.879), seguido por el Lineal y Radial (ambos con 0.877), y finalmente el Polinomial (0.863). La similitud en los resultados sugiere que las relaciones entre las variables predictoras y las categorías de precio no son altamente no lineales, por lo que incluso el modelo lineal puede capturar adecuadamente los patrones principales de los datos.
 
 ```{r Paso 5}
 pred_linear <- predict(svm_linear, newdata = X_test_scaled)
@@ -358,7 +402,11 @@ print(cm_linear)
 print(cm_poly)
 print(cm_radial)
 print(cm_sigmoid)
+```
 
+Las matrices de confusión revelan patrones consistentes en todos los modelos. La categoría "Medianas" muestra alta sensibilidad (>0.93) pero especificidad moderada (~0.75), indicando que los modelos tienden a clasificar correctamente la mayoría de las viviendas medianas, pero también asignan erróneamente algunas viviendas baratas o caras a esta categoría. La categoría "Baratas" muestra la sensibilidad más baja (0.44-0.53) pero alta especificidad (>0.97), reflejando la dificultad para identificar correctamente estas viviendas menos representadas en los datos. La categoría "Caras" mantiene un buen equilibrio con sensibilidad y especificidad superiores a 0.85 en la mayoría de los modelos.
+
+```{r Paso 6 parte 2}
 best_cm <- confusionMatrix(
   switch(
     best_svm_model_name,
@@ -401,4 +449,145 @@ for (cls in levels(y_test)) {
   cat("F1 Score:", round(f1, 4), "\n")
 }
 ```
+
+
+```{r Paso 7}
+evaluate_overfitting <- function(model, x_train, y_train, x_test, y_test, model_name) {
+  # Calcular exactitud en conjunto de entrenamiento
+  train_pred <- predict(model, newdata = x_train)
+  train_accuracy <- sum(train_pred == y_train) / length(y_train)
+  
+  # Calcular exactitud en conjunto de prueba
+  test_pred <- predict(model, newdata = x_test)
+  test_accuracy <- sum(test_pred == y_test) / length(y_test)
+  
+  # Calcular diferencia de exactitud
+  diff_accuracy <- train_accuracy - test_accuracy
+  
+  # Determinar si hay sobreajuste o desajuste
+  if (diff_accuracy > 0.05) {
+    overfitting_status <- "Posible sobreajuste"
+  } else if (train_accuracy < 0.75) {
+    overfitting_status <- "Posible desajuste"
+  } else {
+    overfitting_status <- "Buen ajuste"
+  }
+  
+  return(data.frame(
+    Modelo = model_name,
+    Exactitud_Entrenamiento = train_accuracy,
+    Exactitud_Prueba = test_accuracy,
+    Diferencia = diff_accuracy,
+    Estado = overfitting_status
+  ))
 }
+
+# Evaluar sobreajuste para cada modelo
+overfitting_linear <- evaluate_overfitting(svm_linear, X_train_scaled, y_train, X_test_scaled, y_test, "SVM Lineal")
+overfitting_poly <- evaluate_overfitting(svm_poly, X_train_scaled, y_train, X_test_scaled, y_test, "SVM Polinomial")
+overfitting_radial <- evaluate_overfitting(svm_radial, X_train_scaled, y_train, X_test_scaled, y_test, "SVM Radial")
+overfitting_sigmoid <- evaluate_overfitting(svm_sigmoid, X_train_scaled, y_train, X_test_scaled, y_test, "SVM Sigmoide")
+
+# Combinar resultados
+overfitting_results <- rbind(
+  overfitting_linear,
+  overfitting_poly,
+  overfitting_radial,
+  overfitting_sigmoid
+)
+
+# Mostrar resultados
+print("Análisis de sobreajuste:")
+print(overfitting_results)
+
+# Visualizar comparación entre exactitud de entrenamiento y prueba
+overfitting_long <- reshape2::melt(overfitting_results[, c("Modelo", "Exactitud_Entrenamiento", "Exactitud_Prueba")], 
+                                   id.vars = "Modelo", 
+                                   variable.name = "Conjunto", 
+                                   value.name = "Exactitud")
+
+ggplot(overfitting_long, aes(x = Modelo, y = Exactitud, fill = Conjunto)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_text(aes(label = round(Exactitud, 3)), 
+            position = position_dodge(width = 0.9), 
+            vjust = -0.5, 
+            size = 3) +
+  scale_fill_manual(values = c("Exactitud_Entrenamiento" = "blue", "Exactitud_Prueba" = "red")) +
+  labs(title = "Comparación de exactitud entre conjuntos",
+       x = "Modelo",
+       y = "Exactitud") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Recomendaciones para manejar el sobreajuste o desajuste
+cat("\nRecomendaciones para manejar el sobreajuste o desajuste:\n")
+
+for (i in 1:nrow(overfitting_results)) {
+  model_name <- overfitting_results$Modelo[i]
+  status <- overfitting_results$Estado[i]
+  
+  cat("\n", model_name, "- Estado:", status, "\n")
+  
+  if (status == "Posible sobreajuste") {
+    cat("Recomendaciones:\n")
+    cat("1. Reducir la complejidad del modelo (menor valor de C)\n")
+    cat("2. Usar regularización más fuerte\n")
+    cat("3. Reducir la dimensionalidad de los datos (PCA o selección de características)\n")
+    cat("4. Aumentar el conjunto de datos de entrenamiento si es posible\n")
+  } else if (status == "Posible desajuste") {
+    cat("Recomendaciones:\n")
+    cat("1. Aumentar la complejidad del modelo (mayor valor de C)\n")
+    cat("2. Probar un kernel diferente que pueda capturar mejor las relaciones no lineales\n")
+    cat("3. Incluir más características o crear características de interacción\n")
+    cat("4. Reducir la regularización\n")
+  } else {
+    cat("El modelo muestra un buen balance entre sesgo y varianza. No se requieren cambios significativos.\n")
+  }
+}
+
+# Analizar la relación entre los parámetros y el rendimiento
+if (best_svm_model_name == "SVM Radial" || best_svm_model_name == "SVM Sigmoide") {
+  # Crear gráfico para visualizar el efecto de C y sigma
+  params <- best_svm_model$results
+  
+  p <- ggplot(params, aes(x = C, y = sigma, size = Accuracy, color = Accuracy)) +
+    geom_point() +
+    scale_color_gradient(low = "blue", high = "red") +
+    labs(title = paste("Efecto de los parámetros en la exactitud -", best_svm_model_name),
+         x = "Parámetro C",
+         y = "Parámetro sigma") +
+    theme_minimal()
+  
+  print(p)
+} else if (best_svm_model_name == "SVM Polinomial") {
+  # Crear gráfico para visualizar el efecto de C y degree
+  params <- best_svm_model$results
+  
+  p <- ggplot(params, aes(x = C, y = degree, size = Accuracy, color = Accuracy)) +
+    geom_point() +
+    scale_color_gradient(low = "blue", high = "red") +
+    labs(title = paste("Efecto de los parámetros en la exactitud -", best_svm_model_name),
+         x = "Parámetro C",
+         y = "Grado del polinomio") +
+    theme_minimal()
+  
+  print(p)
+} else if (best_svm_model_name == "SVM Lineal") {
+  # Crear gráfico para visualizar el efecto de C
+  params <- best_svm_model$results
+  
+  p <- ggplot(params, aes(x = C, y = Accuracy)) +
+    geom_point(color = "blue", size = 3) +
+    geom_line() +
+    labs(title = paste("Efecto del parámetro C en la exactitud -", best_svm_model_name),
+         x = "Parámetro C",
+         y = "Exactitud") +
+    theme_minimal()
+  
+  print(p)
+}
+```
+
+El análisis de sobreajuste muestra diferencias entre la exactitud de entrenamiento y prueba que varían entre 0.040 (modelo lineal) y 0.079 (modelo polinomial). El modelo lineal presenta el mejor equilibrio con la diferencia más pequeña, indicando un "Buen ajuste". Los demás modelos muestran señales de "Posible sobreajuste", con exactitudes de entrenamiento superiores a 0.94 pero rendimiento inferior en prueba. Esto sugiere que, aunque los kernels no lineales pueden adaptarse mejor a los datos de entrenamiento, no necesariamente mejoran la generalización, respaldando la elecc
+
+El gráfico del efecto de los parámetros en el modelo SVM Sigmoide muestra claramente que la combinación de un valor sigma bajo (0.01) con diversos valores de C produce los mejores resultados (puntos rojos más grandes). Observamos que valores altos de sigma (0.5) consistentemente producen menor exactitud independientemente del valor de C. Esto indica que el modelo funciona mejor cuando la influencia de cada punto de entrenamiento se extiende a una región más amplia (sigma bajo), permitiendo capturar patrones más generales en los datos, en lugar de adaptarse excesivamente a casos específicos.
