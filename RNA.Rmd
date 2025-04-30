@@ -1,0 +1,88 @@
+---
+title: "SVM"
+author: "Gustavo Cruz; Pedro Guzman"
+date: "2025-04-24"
+output: html_document
+---
+
+## Repositorio (revisar branch SVM)
+
+https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE)
+```
+
+```{r Chunk de librerias}
+# Chunk para librerias
+library(neuralnet)
+library(nnet)
+library(caret)
+library(MASS)
+library(dplyr)
+library(ggplot2)
+library(tidyr)
+library(e1071)
+library(Metrics)
+```
+
+```{r Paso 1 cargar y preparar datos}
+set.seed(2077)
+datos <- read.csv("./train.csv")
+
+str(datos$SalePrice)
+
+price_breaks <- quantile(datos$SalePrice, probs = c(0, 0.33, 0.66, 1), na.rm = TRUE)
+price_labels <- c("Barata", "Media", "Cara")
+
+datos$SalePrice_Category <- cut(datos$SalePrice, 
+                                breaks = price_breaks, 
+                                labels = price_labels,
+                                include.lowest = TRUE)
+
+table(datos$SalePrice_Category)
+
+index <- createDataPartition(datos$SalePrice_Category, p = 0.8, list = FALSE)
+train_data <- datos[index, ]
+test_data <- datos[-index, ]
+```
+
+```{r Paso 2}
+train_data$SalePrice_Category <- as.factor(train_data$SalePrice_Category)
+test_data$SalePrice_Category <- as.factor(test_data$SalePrice_Category)
+
+table(train_data$SalePrice_Category)
+table(test_data$SalePrice_Category)
+
+numeric_cols <- sapply(train_data, is.numeric)
+numeric_cols_names <- names(train_data)[numeric_cols]
+
+numeric_cols_names <- setdiff(numeric_cols_names, "SalePrice")
+
+normalize <- function(x) {
+  return((x - min(x, na.rm = TRUE)) / (max(x, na.rm = TRUE) - min(x, na.rm = TRUE)))
+}
+
+train_data_norm <- train_data
+test_data_norm <- test_data
+
+for (col in numeric_cols_names) {
+  col_min <- min(train_data[[col]], na.rm = TRUE)
+  col_max <- max(train_data[[col]], na.rm = TRUE)
+  
+  train_data_norm[[col]] <- (train_data[[col]] - col_min) / (col_max - col_min)
+  test_data_norm[[col]] <- (test_data[[col]] - col_min) / (col_max - col_min)
+}
+
+for (col in numeric_cols_names) {
+  mean_val <- mean(train_data_norm[[col]], na.rm = TRUE)
+  train_data_norm[[col]][is.na(train_data_norm[[col]])] <- mean_val
+  test_data_norm[[col]][is.na(test_data_norm[[col]])] <- mean_val
+}
+
+train_dummies <- model.matrix(~ SalePrice_Category - 1, data = train_data_norm)
+train_data_norm <- cbind(train_data_norm, train_dummies)
+
+test_dummies <- model.matrix(~ SalePrice_Category - 1, data = test_data_norm)
+test_data_norm <- cbind(test_data_norm, test_dummies)
+```
