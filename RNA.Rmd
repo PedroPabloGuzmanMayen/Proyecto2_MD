@@ -24,6 +24,7 @@ library(ggplot2)
 library(tidyr)
 library(e1071)
 library(Metrics)
+library(reshape2)
 ```
 
 ```{r Paso 1 cargar y preparar datos}
@@ -148,5 +149,42 @@ conf_matrix2 <- confusionMatrix(
 )
 print("Matriz de Confusión - Modelo 2:")
 print(conf_matrix2)
+```
+
+```{r Paso 6}
+comparacion_modelos <- data.frame(
+  Modelo = c("Modelo 1 (5 neuronas)", "Modelo 2 (10 neuronas)"),
+  Exactitud = c(conf_matrix1$overall["Accuracy"], conf_matrix2$overall["Accuracy"]),
+  Kappa = c(conf_matrix1$overall["Kappa"], conf_matrix2$overall["Kappa"]),
+  Tiempo_Entrenamiento = c(time_model1, time_model2)
+)
+print(comparacion_modelos)
+
+ggplot(melt(comparacion_modelos, id.vars = "Modelo"), 
+       aes(x = Modelo, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  ggtitle("Comparación de Modelos de Clasificación")
+```
+
+```{r Paso 7}
+pred_train_model1 <- predict(nn_model1, newdata = train_data_norm, type = "class")
+accuracy_train_model1 <- mean(pred_train_model1 == train_data$SalePrice_Category)
+
+accuracy_test_model1 <- conf_matrix1$overall["Accuracy"]
+
+cat("Modelo 1 - Exactitud en entrenamiento:", accuracy_train_model1, "\n")
+cat("Modelo 1 - Exactitud en prueba:", accuracy_test_model1, "\n")
+cat("Diferencia (posible indicador de sobreajuste):", accuracy_train_model1 - accuracy_test_model1, "\n\n")
+
+pred_train_model2 <- predict(nn_model2, newdata = train_data_norm, type = "class")
+accuracy_train_model2 <- mean(pred_train_model2 == train_data$SalePrice_Category)
+
+accuracy_test_model2 <- conf_matrix2$overall["Accuracy"]
+
+cat("Modelo 2 - Exactitud en entrenamiento:", accuracy_train_model2, "\n")
+cat("Modelo 2 - Exactitud en prueba:", accuracy_test_model2, "\n")
+cat("Diferencia (posible indicador de sobreajuste):", accuracy_train_model2 - accuracy_test_model2, "\n")
 ```
 
