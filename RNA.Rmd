@@ -92,9 +92,8 @@ predictors <- setdiff(numeric_cols_names, c("SalePrice", "SalePrice_Category"))
 
 formula_nn <- as.formula(paste("SalePrice_Category ~ ", paste(predictors, collapse = " + ")))
 
+# MODELO 1 
 start_time_model1 <- Sys.time()
-
-# Modelo 1 red neuronal con una capa oculta y función de activación logística
 set.seed(2075)
 nn_model1 <- nnet(
   formula_nn,
@@ -105,28 +104,49 @@ nn_model1 <- nnet(
   linout = FALSE,      
   trace = FALSE        
 )
-
 end_time_model1 <- Sys.time()
 time_model1 <- end_time_model1 - start_time_model1
 print(paste("Tiempo de entrenamiento Modelo 1:", time_model1))
 
 start_time_model2 <- Sys.time()
-
-# Modelo 2 red neuronal con dos capas ocultas (10,5 neuronas) 
 set.seed(2075)
-nn_model2 <- neuralnet(
+# Modelo 2 
+nn_model2 <- nnet(
   formula_nn,
   data = train_data_norm,
-  hidden = c(10, 5),    
-  act.fct = "tanh",     
-  linear.output = FALSE, 
-  threshold = 0.01,   # Con treshold de 0.1 a 0.01 no aumenta tanto el tiempo de ejecucion  
-  stepmax = 1e4   # Se intento con 1e6 pero toma demasiado tiempo de ejecutar, por eso lo disminui      
+  size = 10,             
+  decay = 0.001,        
+  maxit = 1000,        
+  linout = FALSE,
+  skip = FALSE,         
+  trace = FALSE        
 )
+
+# Lo que cambia es la cantidad de neuronas, la regularizacion y en el modelo la arquitectura es sin conexiones directas
 
 end_time_model2 <- Sys.time()
 time_model2 <- end_time_model2 - start_time_model2
 print(paste("Tiempo de entrenamiento Modelo 2:", time_model2))
 ```
 
+```{r Paso 4 y 5 - Predicciones y matrices de confusión}
+pred_model1 <- predict(nn_model1, newdata = test_data_norm, type = "class")
+
+pred_model2 <- predict(nn_model2, newdata = test_data_norm, type = "class")
+
+levels_original <- levels(test_data$SalePrice_Category)
+conf_matrix1 <- confusionMatrix(
+  factor(pred_model1, levels = levels_original),
+  test_data$SalePrice_Category
+)
+print("Matriz de Confusión - Modelo 1:")
+print(conf_matrix1)
+
+conf_matrix2 <- confusionMatrix(
+  factor(pred_model2, levels = levels_original),
+  test_data$SalePrice_Category
+)
+print("Matriz de Confusión - Modelo 2:")
+print(conf_matrix2)
+```
 
