@@ -453,6 +453,46 @@ train_data_norm &lt;- cbind(train_data_norm, train_dummies)
 
 test_dummies &lt;- model.matrix(~ SalePrice_Category - 1, data = test_data_norm)
 test_data_norm &lt;- cbind(test_data_norm, test_dummies)</code></pre>
+<pre class="r"><code>predictors &lt;- setdiff(numeric_cols_names, c(&quot;SalePrice&quot;, &quot;SalePrice_Category&quot;))
+
+formula_nn &lt;- as.formula(paste(&quot;SalePrice_Category ~ &quot;, paste(predictors, collapse = &quot; + &quot;)))
+
+start_time_model1 &lt;- Sys.time()
+
+# Modelo 1 red neuronal con una capa oculta y función de activación logística
+set.seed(2075)
+nn_model1 &lt;- nnet(
+  formula_nn,
+  data = train_data_norm,
+  size = 5,            
+  decay = 0.01,        
+  maxit = 1000,        
+  linout = FALSE,      
+  trace = FALSE        
+)
+
+end_time_model1 &lt;- Sys.time()
+time_model1 &lt;- end_time_model1 - start_time_model1
+print(paste(&quot;Tiempo de entrenamiento Modelo 1:&quot;, time_model1))</code></pre>
+<pre><code>## [1] &quot;Tiempo de entrenamiento Modelo 1: 0.276789426803589&quot;</code></pre>
+<pre class="r"><code>start_time_model2 &lt;- Sys.time()
+
+# Modelo 2 red neuronal con dos capas ocultas (10,5 neuronas) 
+set.seed(2075)
+nn_model2 &lt;- neuralnet(
+  formula_nn,
+  data = train_data_norm,
+  hidden = c(10, 5),    
+  act.fct = &quot;tanh&quot;,     
+  linear.output = FALSE, 
+  threshold = 0.01,   # Con treshold de 0.1 a 0.01 no aumenta tanto el tiempo de ejecucion  
+  stepmax = 1e4   # Se intento con 1e6 pero toma demasiado tiempo de ejecutar, por eso lo disminui      
+)
+
+end_time_model2 &lt;- Sys.time()
+time_model2 &lt;- end_time_model2 - start_time_model2
+print(paste(&quot;Tiempo de entrenamiento Modelo 2:&quot;, time_model2))</code></pre>
+<pre><code>## [1] &quot;Tiempo de entrenamiento Modelo 2: 11.5567169189453&quot;</code></pre>
 </div>
 
 
