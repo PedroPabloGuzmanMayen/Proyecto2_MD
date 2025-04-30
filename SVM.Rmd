@@ -712,6 +712,8 @@ cat("4. **Importancia de los errores**: Considerando el costo ponderado de los e
     "con", min(costo_total$Costo_Total), "unidades de costo.\n\n")
 ```
 
+El análisis de tiempos de ejecución muestra que todos los modelos SVM tienen tiempos similares, aunque SVM Lineal resultó ligeramente más rápido. El gráfico de tasa de error por categoría revela un patrón consistente en todos los modelos: la categoría "Baratas" presenta la mayor tasa de error (entre 46.7% y 55.6%), lo que refleja el desbalance en la distribución de clases, mientras que la categoría "Medianas" tiene la menor tasa de error (entre 3.1% y 6.6%) debido a su mayor representación en los datos. El modelo SVM Sigmoide obtuvo la mejor exactitud global con un 87.93%, mostrando un buen balance entre las diferentes categorías de precio. El análisis de sobreajuste indica que el modelo lineal presenta el mejor equilibrio entre entrenamiento y prueba (diferencia de 3.98%), mientras los demás modelos muestran signos de posible sobreajuste, con diferencias superiores al 6%. El gráfico de costo total de errores señala que SVM Sigmoide tiene el menor costo ponderado (53 unidades), indicando que comete errores menos graves según la matriz de costo definida.
+
 ```{r Paso 9}
 comparacion_manual <- data.frame(
   Algoritmo = c(
@@ -817,6 +819,7 @@ cat("5. **Posicionamiento del modelo SVM**: El modelo SVM ", best_svm_model_name
     " en términos de exactitud entre los 7 modelos comparados.\n\n")
 ```
 
+La comparación con otros algoritmos muestra que Random Forest obtiene la mayor exactitud (98.1%), seguido por Regresión Logística Binaria (96.13%), Regresión Logística Multinomial (92.03%), KNN (88.6%), Árbol de Clasificación (88.2%), SVM Sigmoide (87.93%) y finalmente Naive Bayes (74.7%). El gráfico de tiempo de ejecución relativo indica que Naive Bayes es el más rápido (tiempo bajo), mientras que Random Forest y Regresión Logística Multinomial son los más lentos (tiempo alto). El gráfico de dispersión exactitud vs tiempo muestra que Regresión Logística Binaria ofrece el mejor balance entre precisión y eficiencia, con alta exactitud y tiempo medio. SVM Sigmoide se posiciona en sexto lugar en términos de exactitud entre los siete modelos comparados, con un desempeño intermedio que, a pesar de no ser el mejor, ofrece un balance razonable entre interpretabilidad y capacidad predictiva con un tiempo de ejecución moderado.
 
 ```{r Paso 10}
 set.seed(8787)
@@ -984,6 +987,8 @@ ggplot(datos_residuos, aes(x = Residuo)) +
   theme_minimal()
 ```
 
+Los resultados del modelo de regresión SVM con diferentes kernels muestran que SVM con kernel radial obtiene el mejor rendimiento, con un RMSE de 28,948 y un R² de 0.87, seguido por SVM lineal (RMSE=30,854, R²=0.852) y finalmente SVM polinomial con un rendimiento significativamente peor (RMSE=54,107, R²=0.545). El gráfico de valores reales vs predichos para el modelo radial muestra una buena alineación con la línea de 45 grados, especialmente para precios bajos y medios, aunque se observa mayor dispersión en precios altos. El análisis de residuos muestra una distribución centrada en cero pero con algunos valores atípicos, principalmente en forma de sobreestimaciones (residuos negativos grandes) para algunas viviendas y subestimaciones significativas (residuos positivos grandes) para propiedades de mayor valor. El histograma de residuos confirma una distribución aproximadamente normal pero con asimetría positiva (cola derecha más larga), indicando que el modelo tiende a subestimar algunas propiedades de alto valor.
+
 ```{r Paso 11}
 mejor_modelo_reg_nombre <- resultados_regresion$Modelo[1]
 mejor_rmse <- resultados_regresion$RMSE[1]
@@ -1052,3 +1057,4 @@ cat("El modelo SVM ", mejor_modelo_reg_nombre, " generado en este análisis repr
     "entre las características de las propiedades y su valor de mercado.\n\n")
 ```
 
+La comparación cualitativa con otros modelos de regresión sugiere que Random Forest generalmente ofrece la mayor precisión predictiva, seguido por Árboles de Regresión, y luego por el modelo SVM Radial que muestra un rendimiento competitivo. En términos de eficiencia computacional, Regresión Lineal destaca por su velocidad, mientras que SVM y Random Forest requieren más tiempo de procesamiento debido a su complejidad algorítmica. Respecto a la interpretabilidad, la Regresión Lineal proporciona coeficientes directamente interpretables y los modelos de árbol ofrecen reglas de decisión visualizables, mientras que SVM y KNN son menos transparentes. El balance general indica que, aunque Random Forest ofrece la mejor precisión, Regresión Lineal proporciona un excelente equilibrio entre interpretabilidad, velocidad y exactitud razonable, mientras que SVM Radial representa una alternativa de rendimiento medio-alto con capacidades de modelado no lineal, especialmente valiosa cuando se busca capturar relaciones no lineales entre las características de las propiedades y su valor de mercado.
