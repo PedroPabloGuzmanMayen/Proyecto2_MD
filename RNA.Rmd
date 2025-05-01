@@ -1,11 +1,11 @@
 ---
-title: "SVM"
+title: "RNA"
 author: "Gustavo Cruz; Pedro Guzman"
 date: "2025-04-24"
 output: html_document
 ---
 
-## Repositorio (revisar branch SVM)
+## Repositorio (revisar branch RNA)
 
 https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
 
@@ -123,12 +123,16 @@ nn_model2 <- nnet(
   trace = FALSE        
 )
 
-# Lo que cambia es la cantidad de neuronas, la regularizacion y en el modelo la arquitectura es sin conexiones directas
+# Lo que cambia es la cantidad de neuronas, la regularizacion y en el modelo la arquitectura que en la segunda es sin conexiones directas
 
 end_time_model2 <- Sys.time()
 time_model2 <- end_time_model2 - start_time_model2
 print(paste("Tiempo de entrenamiento Modelo 2:", time_model2))
 ```
+
+## Explicacion de los modelos y sus resultados
+
+Para el análisis de los datos de precios de viviendas se hizo la comparación entre dos modelos de redes neuronales, el Modelo 1 con 5 neuronas y decay de 0.01, y el Modelo 2 con 10 neuronas y decay de 0.001. Ademas que el modelo 2, no tiene conexiones directas. Los resultados muestran que el Modelo 1 alcanzó una exactitud del 80.4%, superando al Modelo 2 que logró un 77.7%. Además, el Modelo 1 fue significativamente más rápido en el entrenamiento, tomando solo 0.27 segundos frente a 1.64 segundos del Modelo 2 (Tomando en cuenta que los resultados suelen variar cada vez que se corre el Rmd, pero son bastante similares siempre). Esta comparación inicial sugiere que la arquitectura más simple, modelo 1, es más efectiva para este problema de clasificación.
 
 ```{r Paso 4 y 5 - Predicciones y matrices de confusión}
 pred_model1 <- predict(nn_model1, newdata = test_data_norm, type = "class")
@@ -151,6 +155,10 @@ print("Matriz de Confusión - Modelo 2:")
 print(conf_matrix2)
 ```
 
+## Matrices de confusión 
+
+Las matrices de confusión revelan el comportamiento específico de ambos modelos. El Modelo 1 muestra una sensibilidad del 82.3% para casas baratas, 71.9% para casas de precio medio y 86.9% para casas caras. Se observa que la mayor dificultad está en clasificar correctamente las casas de precio medio, que tienden a confundirse tanto con las baratas como con las caras. El Modelo 2 presenta un patrón similar pero con menor rendimiento general, especialmente en la categoría de precio medio donde solo alcanza un 64.6% de sensibilidad.
+
 ```{r Paso 6}
 comparacion_modelos <- data.frame(
   Modelo = c("Modelo 1 (5 neuronas)", "Modelo 2 (10 neuronas)"),
@@ -168,6 +176,10 @@ ggplot(melt(comparacion_modelos, id.vars = "Modelo"),
   ggtitle("Comparación de Modelos de Clasificación")
 ```
 
+## Comparación de los modelos
+
+La gráfica de comparación entre los modelos visualiza claramente las diferencias en exactitud, kappa y tiempo de entrenamiento. Las barras rojas representan la exactitud, mostrando la ventaja del Modelo 1. Las barras verdes ilustran el coeficiente kappa, que también favorece al Modelo 1 con un valor de 0.71 frente al 0.66 del Modelo 2. Las barras azules destacan la enorme diferencia en tiempo de entrenamiento, donde el Modelo 1, además de ser más preciso, es aproximadamente seis veces más rápido.
+
 ```{r Paso 7}
 pred_train_model1 <- predict(nn_model1, newdata = train_data_norm, type = "class")
 accuracy_train_model1 <- mean(pred_train_model1 == train_data$SalePrice_Category)
@@ -176,7 +188,7 @@ accuracy_test_model1 <- conf_matrix1$overall["Accuracy"]
 
 cat("Modelo 1 - Exactitud en entrenamiento:", accuracy_train_model1, "\n")
 cat("Modelo 1 - Exactitud en prueba:", accuracy_test_model1, "\n")
-cat("Diferencia (posible indicador de sobreajuste):", accuracy_train_model1 - accuracy_test_model1, "\n\n")
+cat("Diferencia:", accuracy_train_model1 - accuracy_test_model1, "\n\n")
 
 pred_train_model2 <- predict(nn_model2, newdata = train_data_norm, type = "class")
 accuracy_train_model2 <- mean(pred_train_model2 == train_data$SalePrice_Category)
@@ -185,6 +197,97 @@ accuracy_test_model2 <- conf_matrix2$overall["Accuracy"]
 
 cat("Modelo 2 - Exactitud en entrenamiento:", accuracy_train_model2, "\n")
 cat("Modelo 2 - Exactitud en prueba:", accuracy_test_model2, "\n")
-cat("Diferencia (posible indicador de sobreajuste):", accuracy_train_model2 - accuracy_test_model2, "\n")
+cat("Diferencia:", accuracy_train_model2 - accuracy_test_model2, "\n")
 ```
 
+## Sobreajuste
+
+El análisis de sobreajuste revela diferencias importantes entre los modelos. El Modelo 1 muestra una exactitud de entrenamiento del 93.0% frente al 80.4% en datos de prueba, indicando un sobreajuste del 12.6%. El Modelo 2 exhibe un problema más severo, con una exactitud perfecta en entrenamiento pero solo 77.7% en prueba, resultando en un alarmante 22.3% de sobreajuste.
+
+```{r Paso 8 - Ajuste de parámetros para el modelo de clasificación}
+
+param_grid <- expand.grid(
+  size = c(3, 5, 7, 10),     
+  decay = c(0.001, 0.01, 0.1, 0.5) 
+)
+
+control <- trainControl(
+  method = "cv",             
+  number = 5,                
+  classProbs = TRUE,         
+  summaryFunction = multiClassSummary 
+)
+
+start_time_tune <- Sys.time()
+
+set.seed(2077)
+tuned_model <- train(
+  formula_nn,
+  data = train_data_norm,
+  method = "nnet",
+  trControl = control,
+  tuneGrid = param_grid,
+  trace = FALSE,            
+  linout = FALSE,           
+  maxit = 500                
+)
+
+end_time_tune <- Sys.time()
+time_tune <- end_time_tune - start_time_tune
+print(paste("Tiempo de ajuste de parámetros:", time_tune))
+
+print(tuned_model)
+print("Mejores parámetros:")
+print(tuned_model$bestTune)
+
+plot(tuned_model)
+
+pred_tuned <- predict(tuned_model, newdata = test_data_norm)
+
+conf_matrix_tuned <- confusionMatrix(
+  pred_tuned,
+  test_data$SalePrice_Category
+)
+print("Matriz de Confusión - Modelo Ajustado:")
+print(conf_matrix_tuned)
+
+cat("Exactitud del modelo original:", conf_matrix1$overall["Accuracy"], "\n")
+cat("Exactitud del modelo ajustado:", conf_matrix_tuned$overall["Accuracy"], "\n")
+cat("Mejora en la exactitud:", conf_matrix_tuned$overall["Accuracy"] - conf_matrix1$overall["Accuracy"], "\n")
+
+pred_train_tuned <- predict(tuned_model, newdata = train_data_norm)
+accuracy_train_tuned <- mean(pred_train_tuned == train_data$SalePrice_Category)
+accuracy_test_tuned <- conf_matrix_tuned$overall["Accuracy"]
+
+cat("Modelo Ajustado - Exactitud en entrenamiento:", accuracy_train_tuned, "\n")
+cat("Modelo Ajustado - Exactitud en prueba:", accuracy_test_tuned, "\n")
+cat("Diferencia (posible indicador de sobreajuste):", accuracy_train_tuned - accuracy_test_tuned, "\n")
+
+comparacion_modelos_con_tuned <- data.frame(
+  Modelo = c("Modelo 1 (5 neuronas)", "Modelo 2 (10 neuronas)", "Modelo Ajustado"),
+  Exactitud = c(conf_matrix1$overall["Accuracy"], conf_matrix2$overall["Accuracy"], conf_matrix_tuned$overall["Accuracy"]),
+  Kappa = c(conf_matrix1$overall["Kappa"], conf_matrix2$overall["Kappa"], conf_matrix_tuned$overall["Kappa"]),
+  Sobreajuste = c(accuracy_train_model1 - accuracy_test_model1, 
+                 accuracy_train_model2 - accuracy_test_model2,
+                 accuracy_train_tuned - accuracy_test_tuned)
+)
+
+print(comparacion_modelos_con_tuned)
+
+ggplot(melt(comparacion_modelos_con_tuned, id.vars = "Modelo"), 
+       aes(x = Modelo, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  ggtitle("Comparación incluyendo el Modelo Ajustado")
+```
+
+## Comparacion con modelo ajustado
+
+La optimización de hiperparámetros mediante validación cruzada exploró 16 combinaciones de neuronas y valores de regularización. La gráfica de ajuste muestra que los valores de decay más altos generalmente producen mejor exactitud a través de diferentes números de neuronas. Específicamente, la combinación de 7 neuronas con decay de 0.5 alcanzó el mejor rendimiento, con una exactitud de 84.6% en la validación cruzada.
+
+La matriz de confusión del modelo optimizado muestra mejoras notables. El modelo ajustado alcanza una sensibilidad del 81.3% para casas baratas, 75.0% para casas de precio medio y un  90.9% para casas caras. Particularmente, el modelo ya no confunde casas baratas con caras, y esto nos dice que ha aprendido a distinguir mejor entre los extremos de precios, aunque sigue teniendo cierta dificultad con la categoría intermedia.
+
+La comparación entre el modelo original y el ajustado demuestra una mejora significativa. El modelo ajustado alcanza una exactitud del 82.5% frente al 80.4% del Modelo 1 origina. Más importante aún, el sobreajuste se reduce drásticamente del 12.6% en el modelo original a solo 3.3% en el modelo ajustado.
+
+La gráfica final compara los tres modelos en términos de exactitud, kappa y sobreajuste. Y con la gráfica podemos confirmar que el Modelo Ajustado supera a los otros en exactitud y kappa, mientras mantiene un sobreajuste mínimo.
