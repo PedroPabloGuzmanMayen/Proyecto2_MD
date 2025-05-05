@@ -4,8 +4,12 @@ author: "Gustavo Cruz; Pedro Guzman"
 date: "2025-04-24"
 output: html_document
 ---
+# Informe final: InmoValor S.A.
+
 
 ## Repositorio (revisar branch RNA)
+
+
 
 https://github.com/PedroPabloGuzmanMayen/Proyecto2_MD.git
 
@@ -28,7 +32,7 @@ library(reshape2)
 ```
 
 ```{r Paso 1 cargar y preparar datos}
-set.seed(2077)
+set.seed(245)
 datos <- read.csv("./train.csv")
 
 str(datos$SalePrice)
@@ -110,7 +114,7 @@ time_model1 <- end_time_model1 - start_time_model1
 print(paste("Tiempo de entrenamiento Modelo 1:", time_model1))
 
 start_time_model2 <- Sys.time()
-set.seed(2075)
+set.seed(245)
 # Modelo 2 
 nn_model2 <- nnet(
   formula_nn,
@@ -220,7 +224,7 @@ control <- trainControl(
 
 start_time_tune <- Sys.time()
 
-set.seed(2077)
+set.seed(245)
 tuned_model <- train(
   formula_nn,
   data = train_data_norm,
@@ -291,3 +295,37 @@ La matriz de confusión del modelo optimizado muestra mejoras notables. El model
 La comparación entre el modelo original y el ajustado demuestra una mejora significativa. El modelo ajustado alcanza una exactitud del 82.5% frente al 80.4% del Modelo 1 origina. Más importante aún, el sobreajuste se reduce drásticamente del 12.6% en el modelo original a solo 3.3% en el modelo ajustado.
 
 La gráfica final compara los tres modelos en términos de exactitud, kappa y sobreajuste. Y con la gráfica podemos confirmar que el Modelo Ajustado supera a los otros en exactitud y kappa, mientras mantiene un sobreajuste mínimo.
+
+
+```{r}
+
+predictors <- setdiff(numeric_cols_names, c("SalePrice", "SalePrice_Category"))
+
+formula_nn <- as.formula(paste("SalePrice ~ ", paste(predictors, collapse = " + ")))
+
+modelo_1 <- neuralnet(
+  formula = formula_nn,
+  data = train_data_norm,
+  hidden = c(5),  # Una capa oculta con 5 neuronas
+  act.fct = "logistic",  # Función de activación sigmoide
+  linear.output = TRUE,  # Salida lineal para problema de regresión
+  threshold = 0.01,
+  stepmax = 0.001,
+  rep = 1
+)
+
+# ----- 4. Crear y entrenar el segundo modelo: Arquitectura más compleja con función tanh -----
+cat("\nEntrenando el Modelo 2: Dos capas ocultas (8, 4 neuronas) con función de activación tangente hiperbólica\n")
+modelo_2 <- neuralnet(
+  formula = formula_nn,
+  data = train_data_norm,
+  hidden = c(8,4),  # Dos capas ocultas con 8 y 4 neuronas respectivamente
+  act.fct = "tanh",  # Función de activación tangente hiperbólica
+  linear.output = TRUE,  # Salida lineal para problema de regresión
+  threshold = 0.01,
+  stepmax = 0.001,
+  rep = 1
+)
+
+```
+
