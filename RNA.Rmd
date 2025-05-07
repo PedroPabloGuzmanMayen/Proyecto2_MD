@@ -348,3 +348,216 @@ if(!"SalePrice_norm" %in% colnames(train_data_norm)) {
 summary(train_data_norm$SalePrice_norm)
 ```
 
+```{r Paso 10 - Modelo de regresión 1 - Solución alternativa}
+predictors_reg_valid <- intersect(predictors_reg, colnames(train_data_norm))
+cat("Predictores válidos:\n")
+print(predictors_reg_valid)
+
+test_predictors_matrix <- as.matrix(sapply(test_data_norm[, predictors_reg_valid], as.numeric))
+train_predictors_matrix <- as.matrix(sapply(train_data_norm[, predictors_reg_valid], as.numeric))
+
+# una revisada a los NAs
+na_count <- sum(is.na(test_predictors_matrix))
+if(na_count > 0) {
+  cat("¡Advertencia! Se encontraron", na_count, "valores NA en los datos de prueba después de la conversión\n")
+  for(i in 1:ncol(test_predictors_matrix)) {
+    col_mean <- mean(test_predictors_matrix[,i], na.rm = TRUE)
+    na_indices <- is.na(test_predictors_matrix[,i])
+    if(any(na_indices)) {
+      cat("Imputando valores NA en columna", colnames(test_predictors_matrix)[i], "con media:", col_mean, "\n")
+      test_predictors_matrix[na_indices, i] <- col_mean
+    }
+  }
+}
+
+na_count_train <- sum(is.na(train_predictors_matrix))
+if(na_count_train > 0) {
+  cat("¡Advertencia! Se encontraron", na_count_train, "valores NA en los datos de entrenamiento después de la conversión\n")
+  for(i in 1:ncol(train_predictors_matrix)) {
+    col_mean <- mean(train_predictors_matrix[,i], na.rm = TRUE)
+    na_indices <- is.na(train_predictors_matrix[,i])
+    if(any(na_indices)) {
+      cat("Imputando valores NA en columna de entrenamiento", colnames(train_predictors_matrix)[i], "con media:", col_mean, "\n")
+      train_predictors_matrix[na_indices, i] <- col_mean
+    }
+  }
+}
+
+train_data_clean <- data.frame(train_predictors_matrix)
+train_data_clean$SalePrice_norm <- train_data_norm$SalePrice_norm
+
+formula_reg_valid <- as.formula(paste("SalePrice_norm ~", paste(colnames(train_predictors_matrix), collapse = " + ")))
+
+set.seed(2077)
+start_time_reg1 <- Sys.time()
+reg_model1 <- neuralnet(
+  formula = formula_reg_valid,
+  data = train_data_clean,
+  hidden = c(5),
+  act.fct = "logistic",
+  linear.output = TRUE,
+  threshold = 0.01,
+  stepmax = 1e5,
+  algorithm = "rprop+",
+  err.fct = "sse"
+)
+end_time_reg1 <- Sys.time()
+time_reg_model1 <- end_time_reg1 - start_time_reg1
+cat("Tiempo de entrenamiento del modelo 1:", time_reg_model1, "\n")
+
+if (!is.null(reg_model1$weights)) {
+  plot(reg_model1, rep = "best")
+} else {
+  cat("No se pudieron visualizar los pesos del modelo\n")
+}
+
+pred_reg1 <- neuralnet::compute(reg_model1, test_predictors_matrix)
+pred_reg1_real <- pred_reg1$net.result * (max_price - min_price) + min_price
+real_values <- test_data$SalePrice
+rmse_reg1 <- sqrt(mean((pred_reg1_real - real_values)^2))
+mae_reg1 <- mean(abs(pred_reg1_real - real_values))
+r2_reg1 <- cor(pred_reg1_real, real_values)^2
+
+cat("Modelo de Regresión 1 - Métricas:\n")
+cat("RMSE:", rmse_reg1, "\n")
+cat("MAE:", mae_reg1, "\n")
+cat("R²:", r2_reg1, "\n")
+
+plot_data1 <- data.frame(Real = real_values, Predicho = pred_reg1_real)
+ggplot(plot_data1, aes(x = Real, y = Predicho)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Modelo 1: Valores Reales vs Predicciones",
+       x = "Precio Real",
+       y = "Precio Predicho") +
+  theme_minimal() # finalmente salio :)
+```
+
+```{r Paso 10 - modelo 2}
+predictors_reg_valid <- intersect(predictors_reg, colnames(train_data_norm))
+cat("Predictores válidos:\n")
+print(predictors_reg_valid)
+
+test_predictors_matrix <- as.matrix(sapply(test_data_norm[, predictors_reg_valid], as.numeric))
+train_predictors_matrix <- as.matrix(sapply(train_data_norm[, predictors_reg_valid], as.numeric))
+
+na_count <- sum(is.na(test_predictors_matrix))
+if(na_count > 0) {
+  cat("¡Advertencia! Se encontraron", na_count, "valores NA en los datos de prueba después de la conversión\n")
+  for(i in 1:ncol(test_predictors_matrix)) {
+    col_mean <- mean(test_predictors_matrix[,i], na.rm = TRUE)
+    na_indices <- is.na(test_predictors_matrix[,i])
+    if(any(na_indices)) {
+      cat("Imputando valores NA en columna", colnames(test_predictors_matrix)[i], "con media:", col_mean, "\n")
+      test_predictors_matrix[na_indices, i] <- col_mean
+    }
+  }
+}
+
+na_count_train <- sum(is.na(train_predictors_matrix))
+if(na_count_train > 0) {
+  cat("¡Advertencia! Se encontraron", na_count_train, "valores NA en los datos de entrenamiento después de la conversión\n")
+  for(i in 1:ncol(train_predictors_matrix)) {
+    col_mean <- mean(train_predictors_matrix[,i], na.rm = TRUE)
+    na_indices <- is.na(train_predictors_matrix[,i])
+    if(any(na_indices)) {
+      cat("Imputando valores NA en columna de entrenamiento", colnames(train_predictors_matrix)[i], "con media:", col_mean, "\n")
+      train_predictors_matrix[na_indices, i] <- col_mean
+    }
+  }
+}
+
+train_data_clean <- data.frame(train_predictors_matrix)
+train_data_clean$SalePrice_norm <- train_data_norm$SalePrice_norm
+
+formula_reg_valid <- as.formula(paste("SalePrice_norm ~", paste(colnames(train_predictors_matrix), collapse = " + ")))
+
+set.seed(2077)
+start_time_reg2 <- Sys.time()
+reg_model2 <- neuralnet(
+  formula = formula_reg_valid,
+  data = train_data_clean,
+  hidden = c(8, 4),
+  act.fct = "tanh",
+  linear.output = TRUE,
+  threshold = 0.01,
+  stepmax = 1e5,
+  algorithm = "rprop+",
+  err.fct = "sse"
+)
+end_time_reg2 <- Sys.time()
+time_reg_model2 <- end_time_reg2 - start_time_reg2
+cat("Tiempo de entrenamiento del modelo 2:", time_reg_model2, "\n")
+
+if (!is.null(reg_model2$weights)) {
+  plot(reg_model2, rep = "best")
+} else {
+  cat("No se pudieron visualizar los pesos del modelo\n")
+}
+
+pred_reg2 <- neuralnet::compute(reg_model2, test_predictors_matrix)
+pred_reg2_real <- pred_reg2$net.result * (max_price - min_price) + min_price
+real_values <- test_data$SalePrice
+
+# Cálculo de métricas
+rmse_reg2 <- sqrt(mean((pred_reg2_real - real_values)^2))
+mae_reg2 <- mean(abs(pred_reg2_real - real_values))
+r2_reg2 <- cor(pred_reg2_real, real_values)^2
+
+# Mostrar métricas
+cat("Modelo de Regresión 2 - Métricas:\n")
+cat("RMSE:", rmse_reg2, "\n")
+cat("MAE:", mae_reg2, "\n")
+cat("R²:", r2_reg2, "\n")
+
+# Gráfico de valores reales vs predicciones
+plot_data2 <- data.frame(Real = real_values, Predicho = pred_reg2_real)
+ggplot(plot_data2, aes(x = Real, y = Predicho)) +
+  geom_point(alpha = 0.5) +
+  geom_abline(intercept = 0, slope = 1, color = "red", linetype = "dashed") +
+  labs(title = "Modelo 2: Valores Reales vs Predicciones",
+       x = "Precio Real",
+       y = "Precio Predicho") +
+  theme_minimal()
+```
+
+```{r Paso 11}
+# Este paso es mas para comentar, solo hare graficas para apoyar la discusion
+```{r Paso 11 - Comparación de modelos de regresión}
+# Tabla comparativa de modelos de regresión
+comparacion_reg <- data.frame(
+  Modelo = c("Modelo 1 (5 neuronas, logística)", "Modelo 2 (8-4 neuronas, tanh)"),
+  RMSE = c(rmse_reg1, rmse_reg2),
+  MAE = c(mae_reg1, mae_reg2),
+  R_Cuadrado = c(r2_reg1, r2_reg2),
+  Tiempo_Entrenamiento = c(time_reg_model1, time_reg_model2)
+)
+
+print(comparacion_reg)
+
+# Gráfico de comparación
+comparacion_reg_long <- melt(comparacion_reg, id.vars = "Modelo")
+
+ggplot(comparacion_reg_long[comparacion_reg_long$variable != "Tiempo_Entrenamiento",], 
+       aes(x = Modelo, y = value, fill = variable)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  facet_wrap(~ variable, scales = "free") +
+  theme_minimal() +
+  labs(title = "Comparación de Modelos de Regresión",
+       x = "Modelo",
+       y = "Valor") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Gráfico separado para tiempo de entrenamiento
+ggplot(comparacion_reg, aes(x = Modelo, y = Tiempo_Entrenamiento, fill = Modelo)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Tiempo de Entrenamiento por Modelo",
+       x = "Modelo",
+       y = "Tiempo (segundos)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```
+
+
