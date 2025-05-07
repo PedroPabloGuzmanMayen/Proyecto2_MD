@@ -558,5 +558,174 @@ ggplot(comparacion_reg, aes(x = Modelo, y = Tiempo_Entrenamiento, fill = Modelo)
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+```{r Paso 12 - Análisis de sobreajuste - Curva de aprendizaje}
+# 12. Análisis de sobreajuste mediante curvas de aprendizaje
 
+# Función para generar curvas de aprendizaje para redes neuronales
+generate_learning_curve <- function(data, predictors, target, hidden_layers, act_fct, prop_range = seq(0.1, 0.9, by = 0.1)) {
+  # Inicializar vectores para almacenar resultados
+  train_errors <- numeric(length(prop_range))
+  val_errors <- numeric(length(prop_range))
+  
+  # Para cada proporción de datos de entrenamiento
+  for (i in seq_along(prop_range)) {
+    prop <- prop_range[i]
+    cat("Evaluando con", prop*100, "% de los datos de entrenamiento\n")
+    
+    # Dividir los datos en función de la proporción actual
+    n <- nrow(data)
+    train_idx <- sample(1:n, size = floor(prop * n))
+    current_train <- data[train_idx, ]
+    current_val <- data[-train_idx, ]
+    
+    # Entrenar el modelo con la proporción actual de datos
+    set.seed(2077)  # Para reproducibilidad
+    formula_str <- paste(target, "~", paste(predictors, collapse = " + "))
+    current_formula <- as.formula(formula_str)
+    
+    tryCatch({
+      model <- neuralnet(
+        formula = current_formula,
+        data = current_train,
+        hidden = hidden_layers,
+        act.fct = act_fct,
+        linear.output = TRUE,
+        threshold = 0.01,
+        stepmax = 1e4,  # Reducido para acelerar el proceso
+        algorithm = "rprop+"
+      )
+      
+      # Calcular error en conjunto de entrenamiento
+      # Asegurarnos de usar neuralnet::compute
+      pred_train <- neuralnet::compute(model, current_train[, predictors])
+      train_errors[i] <- mean((pred_train$net.result - current_train[, target])^2)
+      
+      # Calcular error en conjunto de validación
+      pred_val <- neuralnet::compute(model, current_val[, predictors])
+      val_errors[i] <- mean((pred_val$net.result - current_val[, target])^2)
+      
+    }, error = function(e) {
+      cat("Error en prop =", prop, ":", e$message, "\n")
+      train_errors[i] <- NA
+      val_errors[i] <- NA
+    })
+  }
+  
+  return(list(
+    prop_range = prop_range,
+    train_errors = train_errors,
+    val_errors = val_errors
+  ))
+}
 
+# Preparamos los datos limpios para las curvas de aprendizaje
+learning_data <- train_data_clean
+
+# Curva de aprendizaje para Modelo 1 (una capa oculta con 5 neuronas, logística)
+cat("Generando curva de aprendizaje para Modelo 1...\n")
+lc_model1 <- generate_learning_curve(
+  data = learning_data,
+  predictors = colnames(train_predictors_matrix),
+  target = "SalePrice_norm",
+  hidden_layers = c(5),
+  act_fct = "logistic"
+)
+
+# Curva de aprendizaje para Modelo 2 (dos capas ocultas con 8 y 4 neuronas, tanh)
+cat("Generando curva de aprendizaje para Modelo 2...\n")
+lc_model2 <- generate_learning_curve(
+  data = learning_data,
+  predictors = colnames(train_predictors_matrix),
+  target = "SalePrice_norm",
+  hidden_layers = c(8, 4),
+  act_fct = "tanh"
+)
+
+# Graficar las curvas de aprendizaje
+# Modelo 1
+lc_data1 <- data.frame(
+  Proporcion = lc_model1$prop_range,
+  Error_Entrenamiento = lc_model1$train_errors,
+  Error_Validacion = lc_model1$val_errors
+)
+
+lc_data1_long <- reshape2::melt(lc_data1, id.vars = "Proporcion", 
+                                variable.name = "Conjunto", 
+                                value.name = "Error")
+
+p1 <- ggplot(lc_data1_long, aes(x = Proporcion, y = Error, color = Conjunto)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Curva de Aprendizaje - Modelo 1 (5 neuronas, logística)",
+       x = "Proporción de datos de entrenamiento",
+       y = "Error Cuadrático Medio") +
+  theme_minimal()
+
+# Modelo 2
+lc_data2 <- data.frame(
+  Proporcion = lc_model2$prop_range,
+  Error_Entrenamiento = lc_model2$train_errors,
+  Error_Validacion = lc_model2$val_errors
+)
+
+lc_data2_long <- reshape2::melt(lc_data2, id.vars = "Proporcion", 
+                                variable.name = "Conjunto", 
+                                value.name = "Error")
+
+p2 <- ggplot(lc_data2_long, aes(x = Proporcion, y = Error, color = Conjunto)) +
+  geom_line() +
+  geom_point() +
+  labs(title = "Curva de Aprendizaje - Modelo 2 (8-4 neuronas, tanh)",
+       x = "Proporción de datos de entrenamiento",
+       y = "Error Cuadrático Medio") +
+  theme_minimal()
+
+# Mostrar ambas curvas juntas
+gridExtra::grid.arrange(p1, p2, ncol = 1)
+
+# Análisis de las curvas de aprendizaje
+cat("\n--- ANÁLISIS DE SOBREAJUSTE ---\n")
+cat("Modelo 1 - Diferencia entre error de validación y entrenamiento:", 
+    mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE), "\n")
+cat("Modelo 2 - Diferencia entre error de validación y entrenamiento:", 
+    mean(lc_data2$Error_Validacion - lc_data2$Error_Entrenamiento, na.rm = TRUE), "\n")
+
+# Interpretación del sobreajuste
+cat("\nInterpretación de sobreajuste:\n")
+cat("- Si el error de entrenamiento es mucho menor que el error de validación, hay sobreajuste\n")
+cat("- Si ambos errores son altos, hay subajuste\n")
+cat("- El modelo ideal tiene errores bajos y similares en ambos conjuntos\n")
+
+# Verificamos si las curvas convergen con más datos
+cat("\nConvergencia con mayor tamaño de muestra:\n")
+if(!all(is.na(lc_data1$Error_Validacion)) && !all(is.na(lc_data1$Error_Entrenamiento))) {
+  gap_start1 <- abs(lc_data1$Error_Validacion[1] - lc_data1$Error_Entrenamiento[1])
+  gap_end1 <- abs(tail(lc_data1$Error_Validacion, 1) - tail(lc_data1$Error_Entrenamiento, 1))
+  cat("Modelo 1 - Brecha inicial:", gap_start1, "Brecha final:", gap_end1, "\n")
+  if(gap_end1 < gap_start1) {
+    cat("Modelo 1: Las curvas tienden a converger con más datos, lo que sugiere que más datos podrían ser beneficiosos\n")
+  } else {
+    cat("Modelo 1: Las curvas no muestran clara convergencia, lo que podría indicar un problema estructural en el modelo\n")
+  }
+}
+
+if(!all(is.na(lc_data2$Error_Validacion)) && !all(is.na(lc_data2$Error_Entrenamiento))) {
+  gap_start2 <- abs(lc_data2$Error_Validacion[1] - lc_data2$Error_Entrenamiento[1])
+  gap_end2 <- abs(tail(lc_data2$Error_Validacion, 1) - tail(lc_data2$Error_Entrenamiento, 1))
+  cat("Modelo 2 - Brecha inicial:", gap_start2, "Brecha final:", gap_end2, "\n")
+  if(gap_end2 < gap_start2) {
+    cat("Modelo 2: Las curvas tienden a converger con más datos, lo que sugiere que más datos podrían ser beneficiosos\n")
+  } else {
+    cat("Modelo 2: Las curvas no muestran clara convergencia, lo que podría indicar un problema estructural en el modelo\n")
+  }
+}
+
+# Conclusión
+cat("\nCONCLUSIÓN SOBRE SOBREAJUSTE:\n")
+if(mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE) < 
+   mean(lc_data2$Error_Validacion - lc_data2$Error_Entrenamiento, na.rm = TRUE)) {
+  cat("El Modelo 1 muestra menor evidencia de sobreajuste que el Modelo 2\n")
+} else {
+  cat("El Modelo 2 muestra menor evidencia de sobreajuste que el Modelo 1\n")
+}
+```
