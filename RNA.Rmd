@@ -523,7 +523,7 @@ ggplot(plot_data2, aes(x = Real, y = Predicho)) +
 
 ```{r Paso 11}
 # Este paso es mas para comentar, solo hare graficas para apoyar la discusion
-```{r Paso 11 - Comparación de modelos de regresión}
+
 # Tabla comparativa de modelos de regresión
 comparacion_reg <- data.frame(
   Modelo = c("Modelo 1 (5 neuronas, logística)", "Modelo 2 (8-4 neuronas, tanh)"),
@@ -558,6 +558,5 @@ ggplot(comparacion_reg, aes(x = Modelo, y = Tiempo_Entrenamiento, fill = Modelo)
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-```
 
 
