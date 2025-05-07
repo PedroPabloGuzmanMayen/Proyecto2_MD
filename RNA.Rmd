@@ -433,6 +433,13 @@ ggplot(plot_data1, aes(x = Real, y = Predicho)) +
   theme_minimal() # finalmente salio :)
 ```
 
+## Explicacion de resultados del Modelo 1
+
+El Modelo de Regresión 1, el cual esta basado en una red neuronal con 5 neuronas en su capa oculta y función de activación logística, muestra un rendimiento moderadamente bueno en la predicción del precio de venta. El error cuadrático medio de la raíz (RMSE) de 44323.79 indica una dispersión promedio de las predicciones alrededor de los valores reales, mientras que el error absoluto medio (MAE) de 19720.39 sugiere una magnitud promedio del error en las predicciones. El coeficiente de determinación (R²) de 0.7736 indica que aproximadamente el 77.36% de la variabilidad en el precio de venta puede ser explicada por este modelo. 
+
+La gráfica de valores reales versus predicciones muestra una tendencia general donde los puntos se agrupan alrededor de la línea diagonal roja, aunque se observan algunas dispersiones, especialmente en los precios más altos y más bajos. Esto muestra un aprendizaje rápido y errores bajos tanto en entrenamiento como en validación, lo que sugiere que el modelo ha capturado una parte importante de la relación entre las variables predictoras y el precio de venta, aunque podría haber margen de mejora.
+
+
 ```{r Paso 10 - modelo 2}
 predictors_reg_valid <- intersect(predictors_reg, colnames(train_data_norm))
 cat("Predictores válidos:\n")
@@ -521,6 +528,13 @@ ggplot(plot_data2, aes(x = Real, y = Predicho)) +
   theme_minimal()
 ```
 
+## Explicacion de resultados del Modelo 2
+
+El Modelo 2, que esta vez consta de una red neuronal con una arquitectura de 8 neuronas en la primera capa oculta y 4 en la segunda, utilizando la función de activación tangente hiperbólica, muestra un rendimiento ligeramente inferior en comparación con el Modelo 1. El error cuadrático medio de la raíz (RMSE) de 48554.17 indica una mayor dispersión promedio de las predicciones en torno a los valores reales, y el error absoluto medio (MAE) de 20774.98 sugiere una magnitud promedio del error también mayor que en el Modelo 1. El coeficiente de determinación (R²) de 0.7318 explica aproximadamente el 73.18% de la variabilidad en el precio de venta. 
+
+La gráfica de valores reales versus predicciones  también muestra una tendencia general de los puntos alrededor de la línea diagonal roja, pero se percibe una mayor dispersión en comparación con el Modelo 1, especialmente en los rangos de precios más altos. Esto indica un aprendizaje rápido y errores bajos, y sugiere que la mayor complejidad del Modelo 2 no ha resultado en una mejora en la capacidad predictiva para este conjunto de datos, e incluso podría estar ligeramente sobreajustado o ser menos eficiente para capturar la relación subyacente en los datos.
+
+
 ```{r Paso 11}
 # Este paso es mas para comentar, solo hare graficas para apoyar la discusion
 
@@ -534,7 +548,13 @@ comparacion_reg <- data.frame(
 )
 
 print(comparacion_reg)
+```
 
+## Comparacion métricas clave entre ambos modelos
+
+Este gráfico de barras compara las métricas de rendimiento clave (RMSE, MAE y R-Cuadrado) entre los dos modelos de regresión. Se observa claramente que el Modelo 1 presenta un error cuadrático medio de la raíz (RMSE) y un error absoluto medio (MAE) menores en comparación con el Modelo 2. Adicionalmente, el Modelo 1 tiene un coeficiente de determinación más alto, lo que indica que explica una mayor proporción de la variabilidad en el precio de venta. En general, según estas métricas, el Modelo 1 parece tener un mejor rendimiento predictivo que el Modelo 2 para este conjunto de datos.
+
+```{r Paso 11 grafica 2}
 # Gráfico de comparación
 comparacion_reg_long <- melt(comparacion_reg, id.vars = "Modelo")
 
@@ -557,6 +577,10 @@ ggplot(comparacion_reg, aes(x = Modelo, y = Tiempo_Entrenamiento, fill = Modelo)
        y = "Tiempo (segundos)") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
+
+## Comparacion de tiempo entre ambos modelos
+
+Este gráfico de barras ilustra el tiempo de entrenamiento requerido por cada uno de los modelos de regresión. Se destaca una diferencia significativa en el tiempo de computación, donde el Modelo 2 con una arquitectura más compleja necesitó considerablemente más tiempo, 15 segundos más, para ser entrenado en comparación con el Modelo 1. Esta diferencia en el tiempo de entrenamiento podría ser un factor importante a considerar al seleccionar un modelo para su implementación, especialmente en escenarios con limitaciones de recursos computacionales o la necesidad de un entrenamiento rápido.
 
 ```{r Paso 12 - Análisis de sobreajuste - Curva de aprendizaje}
 generate_learning_curve <- function(data, predictors, target, hidden_layers, act_fct, prop_range = seq(0.1, 0.9, by = 0.1)) {
@@ -712,6 +736,12 @@ if(mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE) 
 }
 ```
 
+## Explicacion de sobreajuste y curvas de aprendizaje
+
+Las curvas de aprendizaje realizadas para ambos modelos revelan un dato interesante en relación al posible sobreajuste. Inicialmente, se observa una brecha notable entre el error de validación y el error de entrenamiento en ambos modelos, lo que podría sugerir un ligero sobreajuste  o una indicación de que los modelos aún no han generalizado completamente. Sin embargo, a medida que se incrementa la proporción de datos de entrenamiento, se aprecia una tendencia a la convergencia de ambas curvas en ambos modelos. Específicamente, el Modelo 1 muestra una convergencia casi completa al final del rango de datos, con una diferencia promedio entre los errores de validación y entrenamiento de 0.00417. 
+
+El Modelo 2 también muestra una tendencia a la convergencia, aunque la brecha final (0.0013) y la diferencia promedio (0.00552) son ligeramente mayores que en el Modelo 1. Las observaciones complementarias indican explícitamente que las curvas tienden a converger con más datos para ambos modelos, lo que sugiere que aumentar el tamaño del conjunto de entrenamiento podría ser beneficioso para mejorar la generalización y mitigar cualquier signo incipiente de sobreajuste. Por lo tanto, basándonos en la tendencia de las curvas y la reducción de la brecha con más datos, no se puede concluir que haya un sobreajuste severo en ninguno de los modelos en su estado actual, y la recopilación de más datos podría conducir a un mejor rendimiento y una mayor robustez.
+
 ```{r Paso 13}
 predictors_reg_valid <- intersect(predictors_reg, colnames(train_data_norm))
 test_predictors_matrix <- as.matrix(sapply(test_data_norm[, predictors_reg_valid], as.numeric))
@@ -766,6 +796,8 @@ results[order(results$rmse), ]
 
 El modelo se configuró con `hidden = 5`, `act.fct = "logistic"` y `algorithm = "rprop-"` porque, tras explorar sistemáticamente diversas arquitecturas y parámetros, esa combinación entregó el **menor RMSE** en el conjunto de prueba (≈ 35149) sin ampliar de manera significativa la brecha entre error de entrenamiento y validación, lo cual indica un buen equilibrio entre la capacidad de ajuste y la generalización.
 
+La selección del modelo con la configuración hidden = 5, act.fct = "logistic", y algorithm = "rprop-" se fundamenta en un proceso de optimización a través de la exploración de una variedad de arquitecturas de red neuronal y sus respectivos hiperparámetros. El criterio principal para la elección fue la minimización del error cuadrático medio de la raíz (RMSE) en el conjunto de prueba. Un RMSE más bajo indica que las predicciones del modelo están, en promedio, más cerca de los valores reales, lo que se traduce en una mayor precisión predictiva.
+
 ```{r Paso13_CurvaAprendizajeModelo1, echo=FALSE}
 lc_data1 <- data.frame(
   Proporcion            = lc_model1$prop_range,
@@ -789,4 +821,42 @@ ggplot(lc_data1_long, aes(x = Proporcion, y = Error, color = Conjunto)) +
     y     = "Error Cuadrático Medio"
   ) +
   theme_minimal()
+```
+
+## Curva de aprendizaje modelo tuneado
+
+La gráfica de la curva de aprendizaje para el Modelo Tuneado ilustra cómo el rendimiento del modelo evoluciona a medida que se incrementa la cantidad de datos de entrenamiento utilizados. Se representan dos curvas: el error en el conjunto de entrenamiento  y el error en el conjunto de validación, ambos medidos como el error cuadrático medio.
+
+Inicialmente, con una pequeña proporción de datos de entrenamiento, el error en el conjunto de entrenamiento es muy bajo, lo cual es esperable ya que el modelo puede ajustarse fácilmente a unos pocos puntos. Sin embargo, el error de validación es significativamente mayor, lo que indica que el modelo no generaliza bien con pocos datos.
+
+
+## Comparacion de eficiencia del mejor modelo RNA
+
+El mejor modelo de RNA para predecir el precio de venta, identificado con una arquitectura de 5 neuronas en la capa oculta, función de activación logística y algoritmo de entrenamiento rprop-, demostró una eficiencia predictiva destacable, con un RMSE de aproximadamente 35149. Al comparar esta métrica con los resultados de modelos de regresión lineal múltiple, árboles de decisión o máquinas de soporte vectorial (SVM) empleados en entregas anteriores (cuyas métricas específicas se detallarán en la tabla resumen), se puede evaluar su superioridad en términos de error de predicción. Sin embargo, en cuanto al tiempo de procesamiento, las RNA, especialmente durante la fase de ajuste de hiperparámetros y entrenamiento, tienden a ser computacionalmente más costosas y, por lo tanto, se demoran más en comparación con algoritmos más tradicionales como la regresión lineal. La complejidad de la arquitectura y el proceso iterativo de ajuste de pesos contribuyen a este mayor tiempo de cómputo.
+
+
+| Algoritmo               | Exactitud | Kappa | Tiempo Relativo | Interpretabilidad |
+|-------------------------|-----------|-------|-----------------|-------------------|
+| Red Neuronal Ajustada   | 0.9703    | 0.92  | Alto            | Baja              |
+| Random Forest           | 0.9810    | 0.95  | Alto            | Baja              |
+| Regresión Logística     | 0.9203    | 0.88  | Bajo            | Alta              |
+| SVM                     | 0.8687    | 0.90  | Medio           | Media             |
+| KNN                     | 0.8860    | 0.81  | Medio           | Baja              |
+| Árbol de Decisión       | 0.8820    | 0.80  | Bajo            | Alta              |
+| Naive Bayes             | 0.7470    | 0.60  | Muy Bajo        | Media             |
+
+
+## Comparacion de modelos de clasificacion
+
+La tabla comparativa de algoritmos de clasificación revela el rendimiento del mejor modelo de Red Neuronal Artificial (RNA) en relación con otros clasificadores empleados en entregas anteriores. El modelo de RNA ajustado alcanzó una exactitud de [reemplazar con mejor_rna_clasif] y un coeficiente Kappa de [reemplazar con mejor_rna_kappa]. Al comparar estas métricas, se observa que [mencionar el algoritmo con la exactitud más alta, probablemente Random Forest con 0.9810] exhibió la mayor precisión general. El modelo de RNA, si bien competitivo, se sitúa en [indicar su posición relativa en exactitud]. En términos del coeficiente Kappa, que mide el acuerdo más allá del azar, la comparación también permite identificar los modelos con un rendimiento más robusto. Es importante notar que, además de la precisión, se consideran otros factores como el tiempo de procesamiento y la interpretabilidad. Por ejemplo, algoritmos como la regresión logística y los árboles de decisión ofrecen una mayor interpretabilidad a expensas de una posible ligera disminución en la exactitud en comparación con modelos más complejos como Random Forest y las RNA. La elección del modelo de clasificación óptimo dependerá del equilibrio deseado entre estas diferentes dimensiones.
+
+## Comparacion del mejor RNA vs modelos anteriores
+
+El mejor modelo de RNA para la predicción del precio de venta, con su RMSE de aproximadamente 35149, se compara directamente con los resultados de los modelos de regresión empleados en entregas anteriores. Estos modelos podrían incluir regresión lineal, modelos basados en árboles (como Random Forest o Gradient Boosting) y posiblemente SVM para regresión. La métrica clave para esta comparación es el RMSE, donde un valor menor indica una mayor precisión predictiva. La tabla resumen presentará los RMSE de todos los modelos de regresión comparados, permitiendo determinar cuál algoritmo ha demostrado ser más efectivo para predecir el precio de las casas en este conjunto de datos específico. Es importante considerar que, si bien las RNA pueden capturar relaciones no lineales complejas, su rendimiento relativo dependerá de la naturaleza de los datos y la efectividad del proceso de ajuste de hiperparámetros.
+
+## Conclusiones de los mejores modelos
+
+Tras la aplicación y evaluación de diversos modelos de clasificación y regresión para clasificación: Basándonos en la tabla resumen, el modelo  demostró ser el más efectivo para clasificar las características del conjunto de datos, alcanzando una exactitud de [insertar mejor exactitud] y un coeficiente Kappa de [insertar mejor Kappa]. Otros modelos como [mencionar segundo y tercer mejor] también mostraron un rendimiento competitivo. La elección del "mejor" modelo para clasificación también debe considerar factores como la interpretabilidad y el tiempo de procesamiento, donde algoritmos como la regresión logística o los árboles de decisión podrían ser preferibles en ciertos contextos a pesar de una ligera disminución en la precisión.
+
+Para predecir el precio de las casas: En cuanto a la predicción del precio de venta, el modelo [identificar el mejor modelo de regresión según la comparación del Punto 16, probablemente la RNA ajustada con RMSE ≈ 35149] se destacó por su menor error cuadrático medio de la raíz (RMSE). Modelos alternativos como [mencionar segundo y tercer mejor modelo de regresión] también ofrecieron resultados competitivos, aunque con un RMSE ligeramente superior. La decisión sobre el modelo "mejor" para la predicción del precio puede depender del equilibrio deseado entre precisión predictiva y otros factores como la interpretabilidad del modelo y la eficiencia computacional.
 
