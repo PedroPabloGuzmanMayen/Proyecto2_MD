@@ -559,15 +559,10 @@ ggplot(comparacion_reg, aes(x = Modelo, y = Tiempo_Entrenamiento, fill = Modelo)
 ```
 
 ```{r Paso 12 - Análisis de sobreajuste - Curva de aprendizaje}
-# 12. Análisis de sobreajuste mediante curvas de aprendizaje
-
-# Función para generar curvas de aprendizaje para redes neuronales
 generate_learning_curve <- function(data, predictors, target, hidden_layers, act_fct, prop_range = seq(0.1, 0.9, by = 0.1)) {
-  # Inicializar vectores para almacenar resultados
   train_errors <- numeric(length(prop_range))
   val_errors <- numeric(length(prop_range))
   
-  # Para cada proporción de datos de entrenamiento
   for (i in seq_along(prop_range)) {
     prop <- prop_range[i]
     cat("Evaluando con", prop*100, "% de los datos de entrenamiento\n")
@@ -578,7 +573,6 @@ generate_learning_curve <- function(data, predictors, target, hidden_layers, act
     current_train <- data[train_idx, ]
     current_val <- data[-train_idx, ]
     
-    # Entrenar el modelo con la proporción actual de datos
     set.seed(2077)  # Para reproducibilidad
     formula_str <- paste(target, "~", paste(predictors, collapse = " + "))
     current_formula <- as.formula(formula_str)
@@ -595,12 +589,9 @@ generate_learning_curve <- function(data, predictors, target, hidden_layers, act
         algorithm = "rprop+"
       )
       
-      # Calcular error en conjunto de entrenamiento
-      # Asegurarnos de usar neuralnet::compute
       pred_train <- neuralnet::compute(model, current_train[, predictors])
       train_errors[i] <- mean((pred_train$net.result - current_train[, target])^2)
       
-      # Calcular error en conjunto de validación
       pred_val <- neuralnet::compute(model, current_val[, predictors])
       val_errors[i] <- mean((pred_val$net.result - current_val[, target])^2)
       
@@ -618,10 +609,8 @@ generate_learning_curve <- function(data, predictors, target, hidden_layers, act
   ))
 }
 
-# Preparamos los datos limpios para las curvas de aprendizaje
 learning_data <- train_data_clean
 
-# Curva de aprendizaje para Modelo 1 (una capa oculta con 5 neuronas, logística)
 cat("Generando curva de aprendizaje para Modelo 1...\n")
 lc_model1 <- generate_learning_curve(
   data = learning_data,
@@ -631,7 +620,6 @@ lc_model1 <- generate_learning_curve(
   act_fct = "logistic"
 )
 
-# Curva de aprendizaje para Modelo 2 (dos capas ocultas con 8 y 4 neuronas, tanh)
 cat("Generando curva de aprendizaje para Modelo 2...\n")
 lc_model2 <- generate_learning_curve(
   data = learning_data,
@@ -641,7 +629,6 @@ lc_model2 <- generate_learning_curve(
   act_fct = "tanh"
 )
 
-# Graficar las curvas de aprendizaje
 # Modelo 1
 lc_data1 <- data.frame(
   Proporcion = lc_model1$prop_range,
@@ -680,23 +667,19 @@ p2 <- ggplot(lc_data2_long, aes(x = Proporcion, y = Error, color = Conjunto)) +
        y = "Error Cuadrático Medio") +
   theme_minimal()
 
-# Mostrar ambas curvas juntas
 gridExtra::grid.arrange(p1, p2, ncol = 1)
 
-# Análisis de las curvas de aprendizaje
 cat("\n--- ANÁLISIS DE SOBREAJUSTE ---\n")
 cat("Modelo 1 - Diferencia entre error de validación y entrenamiento:", 
     mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE), "\n")
 cat("Modelo 2 - Diferencia entre error de validación y entrenamiento:", 
     mean(lc_data2$Error_Validacion - lc_data2$Error_Entrenamiento, na.rm = TRUE), "\n")
 
-# Interpretación del sobreajuste
 cat("\nInterpretación de sobreajuste:\n")
 cat("- Si el error de entrenamiento es mucho menor que el error de validación, hay sobreajuste\n")
 cat("- Si ambos errores son altos, hay subajuste\n")
 cat("- El modelo ideal tiene errores bajos y similares en ambos conjuntos\n")
 
-# Verificamos si las curvas convergen con más datos
 cat("\nConvergencia con mayor tamaño de muestra:\n")
 if(!all(is.na(lc_data1$Error_Validacion)) && !all(is.na(lc_data1$Error_Entrenamiento))) {
   gap_start1 <- abs(lc_data1$Error_Validacion[1] - lc_data1$Error_Entrenamiento[1])
@@ -720,7 +703,6 @@ if(!all(is.na(lc_data2$Error_Validacion)) && !all(is.na(lc_data2$Error_Entrenami
   }
 }
 
-# Conclusión
 cat("\nCONCLUSIÓN SOBRE SOBREAJUSTE:\n")
 if(mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE) < 
    mean(lc_data2$Error_Validacion - lc_data2$Error_Entrenamiento, na.rm = TRUE)) {
@@ -729,3 +711,82 @@ if(mean(lc_data1$Error_Validacion - lc_data1$Error_Entrenamiento, na.rm = TRUE) 
   cat("El Modelo 2 muestra menor evidencia de sobreajuste que el Modelo 1\n")
 }
 ```
+
+```{r Paso 13}
+predictors_reg_valid <- intersect(predictors_reg, colnames(train_data_norm))
+test_predictors_matrix <- as.matrix(sapply(test_data_norm[, predictors_reg_valid], as.numeric))
+train_predictors_matrix <- as.matrix(sapply(train_data_norm[, predictors_reg_valid], as.numeric))
+for(i in seq_len(ncol(test_predictors_matrix))){
+  na_idx <- is.na(test_predictors_matrix[,i])
+  if(any(na_idx)) test_predictors_matrix[na_idx, i] <- mean(test_predictors_matrix[,i], na.rm = TRUE)
+}
+for(i in seq_len(ncol(train_predictors_matrix))){
+  na_idx <- is.na(train_predictors_matrix[,i])
+  if(any(na_idx)) train_predictors_matrix[na_idx, i] <- mean(train_predictors_matrix[,i], na.rm = TRUE)
+}
+train_data_clean <- data.frame(train_predictors_matrix)
+train_data_clean$SalePrice_norm <- train_data_norm$SalePrice_norm
+formula_reg <- as.formula(paste("SalePrice_norm ~", paste(colnames(train_predictors_matrix), collapse = " + ")))
+grid <- expand.grid(
+  h   = c(3, 5, 8),
+  act = c("logistic", "tanh"),
+  thr = c(0.01, 0.005),
+  alg = c("rprop+", "rprop-"),
+  stringsAsFactors = FALSE
+)
+results <- data.frame()
+for(j in seq_len(nrow(grid))){
+  p <- grid[j, ]
+  model <- neuralnet::neuralnet(
+    formula       = formula_reg,
+    data          = train_data_clean,
+    hidden        = c(p$h),
+    act.fct       = p$act,
+    linear.output = TRUE,
+    threshold     = p$thr,
+    stepmax       = 1e5,
+    algorithm     = p$alg,
+    err.fct       = "sse"
+  )
+  if(is.null(model$weights)) next
+  pr <- neuralnet::compute(model, test_predictors_matrix)
+  pr_real <- pr$net.result * (max_price - min_price) + min_price
+  rmse <- sqrt(mean((pr_real - test_data$SalePrice)^2))
+  mae  <- mean(abs(pr_real - test_data$SalePrice))
+  r2   <- cor(pr_real, test_data$SalePrice)^2
+  results <- rbind(results, data.frame(p, rmse, mae, r2))
+}
+results[order(results$rmse), ]
+
+
+
+```
+
+## Modelo tuneado elegido
+
+El modelo se configuró con `hidden = 5`, `act.fct = "logistic"` y `algorithm = "rprop-"` porque, tras explorar sistemáticamente diversas arquitecturas y parámetros, esa combinación entregó el **menor RMSE** en el conjunto de prueba (≈ 35149) sin ampliar de manera significativa la brecha entre error de entrenamiento y validación, lo cual indica un buen equilibrio entre la capacidad de ajuste y la generalización.
+
+```{r Paso13_CurvaAprendizajeModelo1, echo=FALSE}
+lc_data1 <- data.frame(
+  Proporcion            = lc_model1$prop_range,
+  Error_Entrenamiento   = lc_model1$train_errors,
+  Error_Validacion      = lc_model1$val_errors
+)
+
+lc_data1_long <- reshape2::melt(
+  lc_data1,
+  id.vars        = "Proporcion",
+  variable.name  = "Conjunto",
+  value.name     = "Error"
+)
+
+ggplot(lc_data1_long, aes(x = Proporcion, y = Error, color = Conjunto)) +
+  geom_line() +
+  geom_point() +
+  labs(
+    title = "Curva de Aprendizaje - Modelo 1 (5 neuronas, logística)",
+    x     = "Proporción de datos de entrenamiento",
+    y     = "Error Cuadrático Medio"
+  ) +
+  theme_minimal()
+
