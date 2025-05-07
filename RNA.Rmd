@@ -297,7 +297,7 @@ La comparación entre el modelo original y el ajustado demuestra una mejora sign
 La gráfica final compara los tres modelos en términos de exactitud, kappa y sobreajuste. Y con la gráfica podemos confirmar que el Modelo Ajustado supera a los otros en exactitud y kappa, mientras mantiene un sobreajuste mínimo.
 
 
-```{r}
+```{r Paso ?}
 
 predictors <- setdiff(numeric_cols_names, c("SalePrice", "SalePrice_Category"))
 
@@ -327,5 +327,24 @@ modelo_2 <- neuralnet(
   rep = 1
 )
 
+```
+
+```{r Paso 9 - Preparación para regresión}
+cat("Variables disponibles para regresión:\n")
+predictors_reg <- setdiff(numeric_cols_names, "SalePrice")
+cat(paste(predictors_reg, collapse=", "), "\n")
+
+formula_reg <- as.formula(paste("SalePrice ~ ", paste(predictors_reg, collapse = " + ")))
+
+if(!"SalePrice_norm" %in% colnames(train_data_norm)) {
+  min_price <- min(train_data$SalePrice, na.rm = TRUE)
+  max_price <- max(train_data$SalePrice, na.rm = TRUE)
+  
+  train_data_norm$SalePrice_norm <- (train_data$SalePrice - min_price) / (max_price - min_price)
+  
+  test_data_norm$SalePrice_norm <- (test_data$SalePrice - min_price) / (max_price - min_price)
+}
+
+summary(train_data_norm$SalePrice_norm)
 ```
 
